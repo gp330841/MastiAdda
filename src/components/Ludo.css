@@ -21,13 +21,14 @@
 }
 
 .ludo-sidebar {
-  flex: 1;
+  flex: 0.75;
+  width: min(100%, 320px);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 2rem;
-  padding: 3rem;
+  gap: 1.5rem;
+  padding: 2rem 1.5rem;
   position: relative;
   overflow: hidden;
 }
@@ -36,6 +37,98 @@
   text-align: center;
   position: relative;
   z-index: 2;
+  width: 100%;
+}
+
+.turn-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.8;
+  margin-bottom: 0.5rem;
+}
+
+.player-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.2rem;
+}
+
+.player-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(15, 23, 42, 0.28);
+  color: var(--text-primary);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.player-row.active {
+  transform: translateX(4px);
+  border-color: rgba(255,255,255,0.22);
+  background: rgba(15, 23, 42, 0.5);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 0 18px rgba(148, 163, 184, 0.18), inset 0 0 16px rgba(255,255,255,0.03);
+}
+
+.player-row.human {
+  border-left-style: solid;
+}
+
+.player-row.bot {
+  border-left-style: solid;
+}
+
+.player-row.bot {
+  opacity: 0.88;
+}
+
+.player-row.human {
+  opacity: 1;
+}
+
+.player-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(255,255,255,0.4);
+}
+
+.player-name-input {
+  flex: 1;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.4);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.55rem 0.65rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.player-name-input:focus {
+  border-color: rgba(148, 163, 184, 0.75);
+  box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.15);
+}
+
+.player-row .player-name-input {
+  border-left-width: 3px;
+}
+
+.player-type {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
 }
 
 /* Dynamic Turn Glow */
@@ -59,30 +152,36 @@
 .glow-blue { background: var(--color-blue); }
 
 .turn-indicator {
-  font-size: 2.2rem;
+  font-size: 1.7rem;
   font-weight: 800;
   margin: 0;
   text-shadow: 0 4px 10px rgba(0,0,0,0.5);
   transition: color 0.4s ease;
 }
 
+.turn-role {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-left: 0.45rem;
+}
+
 .ludo-message {
   color: var(--text-secondary);
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 500;
   margin-top: 0.5rem;
-  min-height: 2.5rem;
-  letter-spacing: 0.5px;
+  min-height: 2.2rem;
+  letter-spacing: 0.4px;
 }
 
 /* ------------------------------ */
 /* 2. Real 3D Dice Component */
 /* ------------------------------ */
 .dice-scene {
-  width: 100px;
-  height: 100px;
-  margin-top: 2rem;
-  perspective: 600px;
+  width: 88px;
+  height: 88px;
+  margin-top: 1.2rem;
+  perspective: 900px;
   cursor: pointer;
 }
 
@@ -91,30 +190,60 @@
   height: 100%;
   position: relative;
   transform-style: preserve-3d;
-  transition: transform 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: transform 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease;
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.38), 0 0 0 2px rgba(255,255,255,0.18);
+}
+
+.cube:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 22px 32px rgba(15, 23, 42, 0.42), 0 0 18px rgba(148, 163, 184, 0.15);
+}
+
+.cube:active {
+  transform: translateY(1px) scale(0.98);
 }
 
 .cube-rolling-blur {
-  filter: blur(2px) drop-shadow(0 0 20px rgba(255,255,255,0.4));
-  transition: transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  filter: blur(1.5px) drop-shadow(0 0 14px rgba(255,255,255,0.18));
+  transition: transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.2s ease, box-shadow 0.2s ease;
+  animation: diceLand 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes diceLand {
+  0% {
+    transform: scale(0.92) rotateX(30deg) rotateY(-30deg);
+    filter: blur(0px) drop-shadow(0 0 0 rgba(255,255,255,0));
+  }
+  25% {
+    transform: scale(1.08) rotateX(-18deg) rotateY(26deg);
+    filter: blur(0.5px) drop-shadow(0 10px 24px rgba(96, 165, 250, 0.18));
+  }
+  60% {
+    transform: scale(1.02) rotateX(10deg) rotateY(-10deg);
+    filter: blur(0px) drop-shadow(0 18px 24px rgba(15, 23, 42, 0.28));
+  }
+  100% {
+    transform: scale(1) rotateX(0deg) rotateY(0deg);
+    filter: blur(0px) drop-shadow(0 10px 18px rgba(15, 23, 42, 0.18));
+  }
 }
 
 .cube__face {
   position: absolute;
-  width: 100px;
-  height: 100px;
+  width: 88px;
+  height: 88px;
   background: linear-gradient(145deg, #f8fafc, #e2e8f0);
   border: 1px solid #cbd5e1;
   border-radius: 12px;
   box-shadow: inset 0 0 15px rgba(0,0,0,0.1);
 }
 
-.cube__face--front  { transform: rotateY(  0deg) translateZ(50px); }
-.cube__face--right  { transform: rotateY( 90deg) translateZ(50px); }
-.cube__face--back   { transform: rotateY(180deg) translateZ(50px); }
-.cube__face--left   { transform: rotateY(-90deg) translateZ(50px); }
-.cube__face--up     { transform: rotateX( 90deg) translateZ(50px); }
-.cube__face--down   { transform: rotateX(-90deg) translateZ(50px); }
+.cube__face--front  { transform: rotateY(  0deg) translateZ(44px); }
+.cube__face--right  { transform: rotateY( 90deg) translateZ(44px); }
+.cube__face--back   { transform: rotateY(180deg) translateZ(44px); }
+.cube__face--left   { transform: rotateY(-90deg) translateZ(44px); }
+.cube__face--up     { transform: rotateX( 90deg) translateZ(44px); }
+.cube__face--down   { transform: rotateX(-90deg) translateZ(44px); }
 
 /* Dice Dots styling */
 .dot {
@@ -158,15 +287,17 @@
   width: 100%;
   max-width: 600px;
   aspect-ratio: 1/1;
-  border-radius: 12px;
-  /* Thick physical board effect */
-  background: #0f172a;
-  box-shadow: 
-    0 20px 50px rgba(0,0,0,0.6), 
-    inset 0 2px 0 rgba(255,255,255,0.1),
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(15,23,42,0.99), rgba(15,23,42,0.92));
+  box-shadow:
+    0 32px 72px rgba(0,0,0,0.74),
+    0 10px 28px rgba(96,165,250,0.08),
+    inset 0 2px 0 rgba(255,255,255,0.14),
+    inset 0 -12px 18px rgba(2,6,23,0.7),
     0 0 0 10px #1e293b,
     0 0 0 11px #0f172a;
-  padding: 6px;
+  padding: 10px;
+  transform: perspective(1200px) rotateX(4deg) rotateY(-2deg);
 }
 
 .ludo-board {
@@ -176,9 +307,14 @@
   display: grid;
   grid-template-columns: repeat(15, 1fr);
   grid-template-rows: repeat(15, 1fr);
-  background: #0f172a;
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 4px;
+  background: linear-gradient(145deg, #0a1020, #101827);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.04),
+    inset 0 18px 25px rgba(255,255,255,0.04),
+    inset 0 -18px 20px rgba(2,6,23,0.55),
+    0 0 20px rgba(148,163,184,0.06);
 }
 
 /* Base Cells */
@@ -225,17 +361,47 @@
   position: absolute;
   top: 40%; left: 40%;
   width: 20%; height: 20%;
-  background: conic-gradient(
-    from 45deg,
-    var(--color-green) 0deg 90deg,
-    var(--color-yellow) 90deg 180deg,
-    var(--color-blue) 180deg 270deg,
-    var(--color-red) 270deg 360deg
-  );
-  clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 0 100%, 0 0); /* Create an X cross in center */
+  background: linear-gradient(135deg, rgba(15,23,42,0.9), rgba(15,23,42,0.6));
+  clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 0 100%, 0 0);
   z-index: 2;
-  box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+  box-shadow:
+    inset 0 0 20px rgba(0,0,0,0.8),
+    0 0 18px rgba(148, 163, 184, 0.16);
   border: 2px solid rgba(255,255,255,0.1);
+  overflow: hidden;
+}
+
+.home-center-graphic::before,
+.home-center-graphic::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(255,255,255,0.18);
+}
+
+.home-center-graphic::before {
+  clip-path: polygon(50% 50%, 0 0, 100% 0);
+  background: linear-gradient(135deg, rgba(239,68,68,0.9), rgba(239,68,68,0.15));
+}
+
+.home-center-graphic::after {
+  clip-path: polygon(50% 50%, 100% 0, 100% 100%);
+  background: linear-gradient(135deg, rgba(16,185,129,0.9), rgba(16,185,129,0.12));
+}
+
+.home-center-graphic {
+  background-image:
+    linear-gradient(45deg, transparent 0 48.5%, rgba(255,255,255,0.18) 48.5% 51.5%, transparent 51.5%),
+    linear-gradient(135deg, transparent 0 48.5%, rgba(255,255,255,0.18) 48.5% 51.5%, transparent 51.5%),
+    linear-gradient(225deg, transparent 0 48.5%, rgba(255,255,255,0.18) 48.5% 51.5%, transparent 51.5%),
+    linear-gradient(315deg, transparent 0 48.5%, rgba(255,255,255,0.18) 48.5% 51.5%, transparent 51.5%),
+    conic-gradient(
+      from 225deg,
+      var(--color-red) 0deg 90deg,
+      var(--color-green) 90deg 180deg,
+      var(--color-yellow) 180deg 270deg,
+      var(--color-blue) 270deg 360deg
+    );
 }
 
 /* ------------------------------ */
@@ -307,9 +473,10 @@
   border-radius: 50%;
   position: relative;
   box-shadow: 
-    0 10px 15px rgba(0,0,0,0.6), /* physical drop shadow */
-    inset -2px -4px 8px rgba(0,0,0,0.5), /* inner shade to give depth */
-    inset 0 2px 4px rgba(255,255,255,0.8); /* top rim highlight */
+    0 14px 18px rgba(0,0,0,0.7),
+    inset -3px -5px 10px rgba(0,0,0,0.46),
+    inset 0 3px 6px rgba(255,255,255,0.7),
+    0 0 8px rgba(255,255,255,0.06);
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s;
 }
 
@@ -336,12 +503,12 @@
 }
 
 .playable-pulse:hover .token-jewel {
-  transform: scale(1.15) translateY(-5px);
+  transform: scale(1.12) translateY(-4px);
   box-shadow: 
-    0 20px 25px rgba(0,0,0,0.6), 
-    inset -2px -4px 8px rgba(0,0,0,0.5), 
+    0 20px 24px rgba(0,0,0,0.68),
+    inset -2px -4px 8px rgba(0,0,0,0.5),
     inset 0 4px 6px rgba(255,255,255,0.9),
-    0 0 20px currentColor; /* Outer glow matching color */
+    0 0 18px currentColor;
 }
 
 .playable-pulse.token-red { color: var(--color-red); }

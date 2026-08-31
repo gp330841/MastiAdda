@@ -113,6 +113,48 @@
 .dot.blue { background: var(--color-blue); }
 .dot.yellow { background: var(--color-yellow); }
 
+.rps-icon {
+  background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+  color: white;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  padding: 0.5rem;
+}
+
+.rps-icon span {
+  flex-basis: 50%;
+}
+
+.game2048-icon {
+  background: linear-gradient(135deg, #f59e0b, #ec4899);
+  color: white;
+  gap: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 0.25rem;
+}
+
+.game2048-icon span {
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chess-icon {
+  background: linear-gradient(135deg, #8b5cf6, #d946ef);
+  color: white;
+  gap: 0.5rem;
+}
+
+.chess-icon span:first-child {
+  transform: translateY(-5px);
+}
+
+.chess-icon span:last-child {
+  transform: translateY(5px);
+}
+
 .card-glass h2 {
   font-size: 1.75rem;
   color: var(--text-primary);

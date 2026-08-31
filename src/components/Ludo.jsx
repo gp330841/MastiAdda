@@ -1,12 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './Ludo.css';
-import { PATH, PLAYERS, SAFE_SPOTS, getTokenPosition } from '../utils/ludoPositions';
+import { getTokenPosition } from '../utils/ludoPositions.js';
+import { chooseBestBotMove, getPlayableTokens, isPositionSafe } from '../utils/ludoLogic.js';
+import { playLudoSound, setMasterSoundEnabled, isMasterSoundEnabled } from '../utils/gameAudio.js';
 
 const COLORS = ['red', 'green', 'yellow', 'blue'];
+const PLAYER_COLOR_MAP = {
+  red: '#ef4444',
+  green: '#10b981',
+  yellow: '#f59e0b',
+  blue: '#3b82f6',
+};
+const DEFAULT_PLAYER_NAMES = {
+  red: 'Red',
+  green: 'Green',
+  yellow: 'Yellow',
+  blue: 'Blue',
+};
 
 const buildInitialPlayers = () => {
   const initialState = {};
-  COLORS.forEach(color => {
+  COLORS.forEach((color) => {
     initialState[color] = Array(4).fill(null).map((_, i) => ({
       id: i,
       status: 'base',
@@ -16,10 +30,15 @@ const buildInitialPlayers = () => {
   return initialState;
 };
 
+const getPlayerDisplayName = (color, playerNames) => {
+  const value = playerNames[color]?.trim();
+  return value || DEFAULT_PLAYER_NAMES[color];
+};
+
 const Ludo = ({ onBack }) => {
   const [players, setPlayers] = useState(buildInitialPlayers());
   const [turn, setTurn] = useState('red');
-  const [diceRoll, setDiceRoll] = useState(1); // default 1 for cube base
+  const [diceRoll, setDiceRoll] = useState(1);
   const [isRolling, setIsRolling] = useState(false);
   const [message, setMessage] = useState('Red to roll!');
   const [hasRolled, setHasRolled] = useState(false);
@@ -28,50 +47,26 @@ const Ludo = ({ onBack }) => {
     red: false,
     green: true,
     yellow: true,
-    blue: true
+    blue: true,
   });
-  // 3D rotations for the dice faces
   const [diceRotation, setDiceRotation] = useState({ x: 0, y: 0 });
+  const [soundEnabled, setSoundEnabled] = useState(() => isMasterSoundEnabled());
+  const [winner, setWinner] = useState(null);
+  const [showRollHint, setShowRollHint] = useState(true);
+  const [playerNames, setPlayerNames] = useState(DEFAULT_PLAYER_NAMES);
 
-  const getPlayableTokens = (color, roll) => {
-    if (!roll) return [];
-    return players[color].filter(token => {
-      if (token.status === 'home') return false;
-      if (token.status === 'base' && roll !== 6) return false;
-      if (token.status === 'active' && token.step + roll > 57) return false;
-      return true;
-    });
-  };
+  const playableTokens = useMemo(() => getPlayableTokens(turn, players, diceRoll), [turn, players, diceRoll]);
 
-  const playableTokens = getPlayableTokens(turn, diceRoll);
+  const formatPlayerName = useCallback((color, includeRole = false) => {
+    const name = getPlayerDisplayName(color, playerNames);
+    if (!includeRole) return name;
+    if (isBot[color]) return `${name} (Bot)`;
+    if (color === 'red') return `${name} (You)`;
+    return `${name} (Player)`;
+  }, [isBot, playerNames]);
 
-  // Bot logic
-  useEffect(() => {
-    if (isBot[turn] && !isRolling) {
-      if (!hasRolled) {
-        const rollTimer = setTimeout(() => handleRoll(), 1200);
-        return () => clearTimeout(rollTimer);
-      } else {
-        if (playableTokens.length > 0) {
-          const moveTimer = setTimeout(() => {
-            let chosen = playableTokens.find(t => t.status === 'base');
-            if (!chosen) {
-              chosen = playableTokens.sort((a, b) => b.step - a.step)[0];
-            }
-            if (chosen) handleTokenClick(turn, chosen.id);
-          }, 1200);
-          return () => clearTimeout(moveTimer);
-        } else {
-          const passTimer = setTimeout(nextTurn, 1500);
-          return () => clearTimeout(passTimer);
-        }
-      }
-    }
-  }, [turn, hasRolled, isRolling, diceRoll]);
-
-  const getRotationForNumber = (num) => {
-    // 1: front, 2: up, 3: right, 4: left, 5: down, 6: back
-    switch(num) {
+  const getRotationForNumber = useCallback((num) => {
+    switch (num) {
       case 1: return { x: 0, y: 0 };
       case 2: return { x: -90, y: 0 };
       case 3: return { x: 0, y: -90 };
@@ -80,145 +75,207 @@ const Ludo = ({ onBack }) => {
       case 6: return { x: 180, y: 0 };
       default: return { x: 0, y: 0 };
     }
-  };
+  }, []);
 
-  const throwDice3D = (finalNumber) => {
-    setIsRolling(true);
-    // Add multiple spins before landing on the target rotation
-    const baseSpinsX = Math.floor(Math.random() * 4 + 4) * 360; 
-    const baseSpinsY = Math.floor(Math.random() * 4 + 4) * 360;
-    const target = getRotationForNumber(finalNumber);
-    
-    setDiceRotation({
-      x: baseSpinsX + target.x,
-      y: baseSpinsY + target.y
-    });
-
-    setTimeout(() => {
-      setDiceRoll(finalNumber);
-      setHasRolled(true);
-      setIsRolling(false);
-      
-      const playable = getPlayableTokens(turn, finalNumber);
-      if (playable.length === 0) {
-        setMessage(`No moves available for ${turn}.`);
-        setTimeout(nextTurn, 2000);
-      } else {
-        setMessage(`${turn} rolled a ${finalNumber}! Make a move.`);
-      }
-    }, 1200); // Wait for the transition defined in CSS
-  };
-
-  const handleRoll = () => {
-    if (hasRolled || isRolling) return;
-    setMessage(`${turn} is rolling...`);
-    const roll = Math.floor(Math.random() * 6) + 1;
-    throwDice3D(roll);
-  };
-
-  const nextTurn = () => {
+  const nextTurn = useCallback(() => {
     setHasRolled(false);
+    setDiceRoll(1);
     const currIdx = activePlayers.indexOf(turn);
     const nextPlayer = activePlayers[(currIdx + 1) % activePlayers.length];
     setTurn(nextPlayer);
-    setMessage(`${nextPlayer}'s turn!`);
-  };
+    setMessage(`${formatPlayerName(nextPlayer)}'s turn!`);
+    playLudoSound('turn');
+  }, [activePlayers, formatPlayerName, turn]);
 
-  const checkCapture = (movedColor, newPosStr) => {
-    let captured = false;
-    let newPlayersState = { ...players };
-
-    COLORS.forEach(color => {
-      if (color !== movedColor) {
-        newPlayersState[color] = newPlayersState[color].map(token => {
-          if (token.status === 'active') {
-            const pos = getTokenPosition(color, token);
-            const posStr = `${pos[0]},${pos[1]}`;
-            if (posStr === newPosStr) {
-               const isSafe = Object.values(PLAYERS).some(p => p.startIdx !== undefined && PATH[p.startIdx].join(',') === posStr) 
-                 || [9, 22, 35, 48].some(i => PATH[i].join(',') === posStr);
-               
-               if (!isSafe) {
-                 captured = true;
-                 return { ...token, status: 'base', step: 0 };
-               }
-            }
-          }
-          return token;
-        });
-      }
-    });
-
-    if (captured) {
-      setPlayers(newPlayersState);
-      setMessage(`Boom! ${movedColor} captured a token & rolls again!`);
-      return true;
-    }
-    return false;
-  };
-
-  const handleTokenClick = (color, tokenId) => {
-    if (color !== turn || !hasRolled || isRolling) return;
-    const token = players[color].find(t => t.id === tokenId);
-    if (!getPlayableTokens(turn, diceRoll).find(t => t.id === tokenId)) return;
-
-    let newPlayersState = { ...players };
+  const checkCapture = useCallback((movedColor, newPlayersState, movedToken) => {
+    const targetPos = getTokenPosition(movedColor, movedToken);
+    const targetKey = `${targetPos[0]},${targetPos[1]}`;
     let captured = false;
 
-    newPlayersState[color] = newPlayersState[color].map(t => {
-      if (t.id === tokenId) {
-        if (t.status === 'base' && diceRoll === 6) {
-          return { ...t, status: 'active', step: 0 };
-        } else if (t.status === 'active') {
-          const newStep = t.step + diceRoll;
-          return { ...t, step: newStep, status: newStep === 57 ? 'home' : 'active' };
-        }
-      }
-      return t;
+    COLORS.forEach((color) => {
+      if (color === movedColor) return;
+
+      newPlayersState[color] = newPlayersState[color].map((token) => {
+        if (token.status !== 'active') return token;
+
+        const currentPos = getTokenPosition(color, token);
+        const currentKey = `${currentPos[0]},${currentPos[1]}`;
+
+        if (currentKey !== targetKey) return token;
+        if (isPositionSafe(currentPos)) return token;
+
+        captured = true;
+        return { ...token, status: 'base', step: 0 };
+      });
     });
 
-    setPlayers(newPlayersState);
+    return captured;
+  }, []);
 
-    const updatedToken = newPlayersState[color].find(t => t.id === tokenId);
-    if (updatedToken.status === 'active') {
-      const newPos = getTokenPosition(color, updatedToken);
-      captured = checkCapture(color, `${newPos[0]},${newPos[1]}`);
-    }
+  const throwDice3D = useCallback((finalNumber) => {
+    setIsRolling(true);
+    const baseSpinsX = Math.floor(Math.random() * 4 + 4) * 360;
+    const baseSpinsY = Math.floor(Math.random() * 4 + 4) * 360;
+    const target = getRotationForNumber(finalNumber);
 
-    if (diceRoll === 6 || captured) {
-       setHasRolled(false);
-       if (!captured) setMessage(`${turn} rolled a 6! Roll again.`);
+    setDiceRotation({
+      x: baseSpinsX + target.x,
+      y: baseSpinsY + target.y,
+    });
+
+    window.setTimeout(() => {
+      setDiceRoll(finalNumber);
+      setHasRolled(true);
+      setIsRolling(false);
+
+      const available = getPlayableTokens(turn, players, finalNumber);
+      if (available.length === 0) {
+        setMessage(`No valid moves for ${formatPlayerName(turn)}.`);
+        window.setTimeout(() => nextTurn(), 1200);
+        return;
+      }
+
+      setMessage(`${formatPlayerName(turn)} rolled a ${finalNumber}. Choose a token.`);
+    }, 1200);
+  }, [formatPlayerName, getRotationForNumber, nextTurn, players, turn]);
+
+  const handleRoll = useCallback(() => {
+    if (hasRolled || isRolling || winner) return;
+    setShowRollHint(false);
+    setMessage(`${formatPlayerName(turn)} is rolling...`);
+    const roll = Math.floor(Math.random() * 6) + 1;
+    if (roll === 6) {
+      playLudoSound('six');
     } else {
-       setTimeout(nextTurn, 500); // 500ms allows piece movement to finish
+      playLudoSound('roll');
     }
-  };
+    throwDice3D(roll);
+  }, [formatPlayerName, hasRolled, isRolling, throwDice3D, turn, winner]);
+
+  const handleTokenClick = useCallback((color, tokenId) => {
+    if (winner || color !== turn || !hasRolled || isRolling) return;
+
+    const token = players[color].find((piece) => piece.id === tokenId);
+    if (!token) return;
+
+    const available = getPlayableTokens(color, players, diceRoll);
+    const isAllowed = available.some((piece) => piece.id === tokenId);
+    if (!isAllowed) return;
+
+    const nextPlayersState = {
+      ...players,
+      [color]: players[color].map((piece) => {
+        if (piece.id !== tokenId) return piece;
+
+        if (piece.status === 'base' && diceRoll === 6) {
+          return { ...piece, status: 'active', step: 0 };
+        }
+
+        if (piece.status === 'active') {
+          const nextStep = piece.step + diceRoll;
+          return { ...piece, step: nextStep, status: nextStep === 57 ? 'home' : 'active' };
+        }
+
+        return piece;
+      }),
+    };
+
+    setPlayers(nextPlayersState);
+
+    const updatedToken = nextPlayersState[color].find((piece) => piece.id === tokenId);
+    const wasCaptured = updatedToken && updatedToken.status === 'active'
+      ? checkCapture(color, nextPlayersState, updatedToken)
+      : false;
+
+    const allHome = nextPlayersState[color].every((piece) => piece.status === 'home');
+    if (allHome) {
+      setWinner(color);
+      setHasRolled(false);
+      setDiceRoll(1);
+      setMessage(`${formatPlayerName(color)} wins the game!`);
+      playLudoSound('win');
+      return;
+    }
+
+    if (wasCaptured) {
+      setHasRolled(false);
+      setDiceRoll(1);
+      setMessage(`Boom! ${formatPlayerName(color)} captured a piece and keeps rolling.`);
+      playLudoSound('capture');
+      return;
+    }
+
+    if (diceRoll === 6) {
+      setHasRolled(false);
+      setDiceRoll(1);
+      setMessage(`${formatPlayerName(color)} rolled a 6. Roll again.`);
+      playLudoSound('six');
+      return;
+    }
+
+    playLudoSound('move');
+    window.setTimeout(() => nextTurn(), 500);
+  }, [checkCapture, diceRoll, formatPlayerName, hasRolled, isRolling, nextTurn, players, turn, winner]);
+
+  useEffect(() => {
+    if (!isBot[turn] || isRolling) return undefined;
+
+    if (!hasRolled) {
+      const timer = window.setTimeout(() => handleRoll(), 700);
+      return () => window.clearTimeout(timer);
+    }
+
+    const available = getPlayableTokens(turn, players, diceRoll);
+    if (available.length === 0) {
+      const timer = window.setTimeout(() => nextTurn(), 800);
+      return () => window.clearTimeout(timer);
+    }
+
+    const bestMove = chooseBestBotMove(turn, players, diceRoll);
+    if (!bestMove) return undefined;
+
+    const timer = window.setTimeout(() => {
+      handleTokenClick(turn, bestMove.tokenId);
+    }, 650);
+
+    return () => window.clearTimeout(timer);
+  }, [diceRoll, handleRoll, handleTokenClick, hasRolled, isBot, nextTurn, players, turn, isRolling]);
+
+  useEffect(() => {
+    setMasterSoundEnabled(soundEnabled);
+  }, [soundEnabled]);
 
   const setMode = (mode) => {
     if (mode === '1p') {
       setIsBot({ red: false, green: true, yellow: true, blue: true });
       setActivePlayers(['red', 'green', 'yellow', 'blue']);
+      setTurn('red');
     } else if (mode === '4p') {
       setIsBot({ red: false, green: false, yellow: false, blue: false });
       setActivePlayers(['red', 'green', 'yellow', 'blue']);
+      setTurn('red');
     } else if (mode === '2p') {
       setIsBot({ red: false, yellow: false, green: true, blue: true });
       setActivePlayers(['red', 'yellow']);
       setTurn('red');
     }
+
+    setWinner(null);
     setPlayers(buildInitialPlayers());
     setDiceRoll(1);
-    setDiceRotation({x: 0, y:0});
+    setDiceRotation({ x: 0, y: 0 });
     setHasRolled(false);
+    setIsRolling(false);
+    setShowRollHint(true);
+    setMessage('Red to roll!');
   };
 
-  // Rendering logical groups
   const renderGrid = () => {
     const cells = [];
     for (let row = 0; row < 15; row++) {
       for (let col = 0; col < 15; col++) {
         let cellClass = 'ludo-cell';
-        
-        // Context classes
+
         if (row < 6 && col < 6) cellClass += ' yard-container yard-red-bg';
         else if (row < 6 && col > 8) cellClass += ' yard-container yard-green-bg';
         else if (row > 8 && col > 8) cellClass += ' yard-container yard-yellow-bg';
@@ -236,18 +293,16 @@ const Ludo = ({ onBack }) => {
         if (row === 8 && col === 13) cellClass += ' safe safe-yellow gradient-glow';
         if (row === 13 && col === 6) cellClass += ' safe safe-blue gradient-glow';
 
-        if ((row===2 && col===6) || (row===6 && col===12) || (row===12 && col===8) || (row===8 && col===2)) {
+        if ((row === 2 && col === 6) || (row === 6 && col === 12) || (row === 12 && col === 8) || (row === 8 && col === 2)) {
           cellClass += ' star-cell glowing-star';
         }
 
         cells.push(
-          <div 
-            key={`${row}-${col}`} 
+          <div
+            key={`${row}-${col}`}
             className={cellClass}
             style={{ gridRow: row + 1, gridColumn: col + 1 }}
-          >
-            {/* The actual Yard graphic is a localized overlay element so we don't spam 36 divs with gradient. We do it via absolute pos outside the grid loop. But we can add a specific marker here if needed */}
-          </div>
+          />
         );
       }
     }
@@ -255,34 +310,30 @@ const Ludo = ({ onBack }) => {
   };
 
   const renderYardOverlay = (color) => {
-    const baseCoords = PLAYERS[color].baseCoords;
-    const isRedOrBlue = color === 'red' || color === 'blue';
     const isTop = color === 'red' || color === 'green';
-    
-    // Positioning the 6x6 yard overlay specifically
     const top = isTop ? '0%' : 'calc(100% * 9 / 15)';
     const left = color === 'red' || color === 'blue' ? '0%' : 'calc(100% * 9 / 15)';
-    
+
     return (
       <div key={`yard-${color}`} className={`yard-overlay block-${color}`} style={{ top, left }}>
         <div className="yard-inner-jewel">
-           <div className="dimple-container">
-             <div className="dimple"></div>
-             <div className="dimple"></div>
-             <div className="dimple"></div>
-             <div className="dimple"></div>
-           </div>
+          <div className="dimple-container">
+            <div className="dimple" />
+            <div className="dimple" />
+            <div className="dimple" />
+            <div className="dimple" />
+          </div>
         </div>
       </div>
     );
   };
 
   const renderTokens = () => {
-    return COLORS.map(color => {
-      return players[color].map(token => {
+    return activePlayers.map((color) => (
+      players[color].map((token) => {
         const [row, col] = getTokenPosition(color, token);
-        const isPlayable = turn === color && hasRolled && !isRolling && !isBot[color] && getPlayableTokens(color, diceRoll).find(t => t.id === token.id);
-        
+        const isPlayable = turn === color && hasRolled && !isRolling && !isBot[color] && playableTokens.some((piece) => piece.id === token.id);
+
         return (
           <div
             key={`${color}-${token.id}`}
@@ -294,53 +345,110 @@ const Ludo = ({ onBack }) => {
             onClick={() => handleTokenClick(color, token.id)}
           >
             <div className="token-jewel">
-                <div className="token-glint"></div>
+              <div className="token-glint" />
             </div>
           </div>
         );
-      });
-    });
+      })
+    ));
   };
 
-  // Create 3D dice faces
   const renderDiceValue = (num) => {
-    switch(num) {
-      case 1: return <div className="dot center"></div>;
-      case 2: return <><div className="dot top-left"></div><div className="dot bottom-right"></div></>;
-      case 3: return <><div className="dot top-left"></div><div className="dot center"></div><div className="dot bottom-right"></div></>;
-      case 4: return <><div className="dot top-left"></div><div className="dot top-right"></div><div className="dot bottom-left"></div><div className="dot bottom-right"></div></>;
-      case 5: return <><div className="dot top-left"></div><div className="dot top-right"></div><div className="dot center"></div><div className="dot bottom-left"></div><div className="dot bottom-right"></div></>;
-      case 6: return <><div className="dot top-left"></div><div className="dot top-right"></div><div className="dot middle-left"></div><div className="dot middle-right"></div><div className="dot bottom-left"></div><div className="dot bottom-right"></div></>;
+    switch (num) {
+      case 1: return <div className="dot center" />;
+      case 2: return <><div className="dot top-left" /><div className="dot bottom-right" /></>;
+      case 3: return <><div className="dot top-left" /><div className="dot center" /><div className="dot bottom-right" /></>;
+      case 4: return <><div className="dot top-left" /><div className="dot top-right" /><div className="dot bottom-left" /><div className="dot bottom-right" /></>;
+      case 5: return <><div className="dot top-left" /><div className="dot top-right" /><div className="dot center" /><div className="dot bottom-left" /><div className="dot bottom-right" /></>;
+      case 6: return <><div className="dot top-left" /><div className="dot top-right" /><div className="dot middle-left" /><div className="dot middle-right" /><div className="dot bottom-left" /><div className="dot bottom-right" /></>;
       default: return null;
     }
-  }
+  };
+
+  const getPlayerLabel = (color) => {
+    if (isBot[color]) {
+      return 'Bot';
+    }
+
+    if (color === 'red') {
+      return 'You';
+    }
+
+    return 'Player';
+  };
+
+  const handlePlayerNameChange = (color, value) => {
+    const trimmed = value.slice(0, 14);
+    setPlayerNames((prev) => ({
+      ...prev,
+      [color]: trimmed,
+    }));
+  };
 
   return (
     <div className="game-wrapper animate-fade-in ludo">
       <header className="game-header">
-         <button className="btn-outline back-btn" onClick={onBack}>← Back</button>
+        <button className="btn-outline back-btn" onClick={onBack}>← Back</button>
         <h2 className="game-title">Omni Ludo</h2>
         <div className="mode-selector">
-          <button className={`mode-btn ${activePlayers.length===4 && isBot.green ? 'active' : ''}`} onClick={() => setMode('1p')}>1P vs Bots</button>
-          <button className={`mode-btn ${activePlayers.length===2 ? 'active' : ''}`} onClick={() => setMode('2p')}>2 Player</button>
-          <button className={`mode-btn ${activePlayers.length===4 && !isBot.green ? 'active' : ''}`} onClick={() => setMode('4p')}>4 Player</button>
+          <button className={`mode-btn ${activePlayers.length === 4 && isBot.green ? 'active' : ''}`} onClick={() => setMode('1p')}>1P vs Bots</button>
+          <button className={`mode-btn ${activePlayers.length === 2 ? 'active' : ''}`} onClick={() => setMode('2p')}>2 Player</button>
+          <button className={`mode-btn ${activePlayers.length === 4 && !isBot.green ? 'active' : ''}`} onClick={() => setMode('4p')}>4 Player</button>
         </div>
+        <button
+          className="btn-outline"
+          onClick={() => setSoundEnabled((prev) => !prev)}
+          aria-label="Toggle sound"
+          title={soundEnabled ? 'Mute sound' : 'Enable sound'}
+        >
+          {soundEnabled ? '🔊 Sound On' : '🔇 Sound Off'}
+        </button>
       </header>
 
       <div className="ludo-content">
         <div className="ludo-sidebar glass-panel">
           <div className="active-player-panel">
-             <div className={`active-player-glow glow-${turn}`}></div>
-             <h3 className="turn-indicator" style={{color: `var(--color-${turn})`}}>
-               {turn.charAt(0).toUpperCase() + turn.slice(1)}'s Turn
-               {isBot[turn] && " 🤖"}
-             </h3>
-             <div className="ludo-message">{message}</div>
+            <div className={`active-player-glow glow-${turn}`} />
+            <div className="turn-badge">Current Turn</div>
+            <h3 className="turn-indicator" style={{ color: `var(--color-${turn})` }}>
+              {getPlayerDisplayName(turn, playerNames)}
+              <span className="turn-role">{isBot[turn] ? ' Bot' : ' You'}</span>
+            </h3>
+            <div className="ludo-message">{message}</div>
           </div>
-          
+
+          <div className="player-list" aria-label="Players">
+            {activePlayers.map((color) => (
+              <div
+                key={color}
+                className={`player-row ${turn === color ? 'active' : ''} ${isBot[color] ? 'bot' : 'human'}`}
+                style={{
+                  borderLeft: `3px solid ${PLAYER_COLOR_MAP[color]}`,
+                  boxShadow: turn === color ? `inset 0 0 0 1px ${PLAYER_COLOR_MAP[color]}44, 0 0 18px rgba(15, 23, 42, 0.2)` : 'none',
+                }}
+              >
+                <span
+                  className="player-swatch"
+                  style={{
+                    background: PLAYER_COLOR_MAP[color],
+                    boxShadow: `0 0 0 2px ${PLAYER_COLOR_MAP[color]}55, 0 0 12px ${PLAYER_COLOR_MAP[color]}88`,
+                  }}
+                />
+                <input
+                  className="player-name-input"
+                  type="text"
+                  value={playerNames[color] || ''}
+                  onChange={(event) => handlePlayerNameChange(color, event.target.value)}
+                  aria-label={`${getPlayerDisplayName(color, playerNames)} name`}
+                />
+                <span className="player-type">{getPlayerLabel(color)}</span>
+              </div>
+            ))}
+          </div>
+
           <div className="dice-scene" onClick={!isBot[turn] && !hasRolled ? handleRoll : undefined}>
-            <div 
-              className={`cube ${isRolling ? 'cube-rolling-blur' : ''}`} 
+            <div
+              className={`cube ${isRolling ? 'cube-rolling-blur' : ''}`}
               style={{ transform: `translateZ(-50px) rotateX(${diceRotation.x}deg) rotateY(${diceRotation.y}deg)` }}
             >
               <div className="cube__face cube__face--front">{renderDiceValue(1)}</div>
@@ -350,8 +458,8 @@ const Ludo = ({ onBack }) => {
               <div className="cube__face cube__face--down">{renderDiceValue(5)}</div>
               <div className="cube__face cube__face--back">{renderDiceValue(6)}</div>
             </div>
-            
-            {!isBot[turn] && !hasRolled && (
+
+            {!isBot[turn] && !hasRolled && showRollHint && (
               <div className="roll-hint">Click Dice to Roll</div>
             )}
           </div>
@@ -359,12 +467,12 @@ const Ludo = ({ onBack }) => {
 
         <div className="ludo-board-wrapper">
           <div className="ludo-board-3d-box">
-             <div className="ludo-board">
-               {renderGrid()}
-               {COLORS.map(color => renderYardOverlay(color))}
-               <div className="home-center-graphic"></div>
-               {renderTokens()}
-             </div>
+            <div className="ludo-board">
+              {renderGrid()}
+              {COLORS.map((color) => renderYardOverlay(color))}
+              <div className="home-center-graphic" />
+              {renderTokens()}
+            </div>
           </div>
         </div>
       </div>
