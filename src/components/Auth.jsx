@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import './Auth.css';
 
-const API_BASE = 'http://localhost:3001/api/auth';
+// Keep the API on the same origin in production. This lets Cloudflare Pages
+// serve the game and its authentication API from one public URL.
+const API_BASE = import.meta.env.VITE_API_BASE || '/api/auth';
 
 const Auth = ({ onLogin }) => {
   const [isLoginView, setIsLoginView] = useState(true);

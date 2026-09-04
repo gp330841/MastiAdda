@@ -1,0 +1,9 @@
+# Copy this to wrangler.toml after creating your Cloudflare D1 database.
+name = "omnigames"
+compatibility_date = "2026-09-04"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "omnigames-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"

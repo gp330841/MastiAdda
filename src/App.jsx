@@ -32,7 +32,7 @@ function App() {
       setLoading(false);
     }, 1500);
 
-    fetch('http://localhost:3001/api/auth/me', {
+    fetch(`${import.meta.env.VITE_API_BASE || '/api/auth'}/me`, {
       signal: controller.signal,
       headers: {
         'Authorization': `Bearer ${token}`
