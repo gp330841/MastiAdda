@@ -183,6 +183,15 @@
   margin-top: 1.2rem;
   perspective: 900px;
   cursor: pointer;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.dice-scene:disabled {
+  cursor: default;
 }
 
 .cube {

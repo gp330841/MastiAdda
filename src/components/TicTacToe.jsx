@@ -154,7 +154,7 @@ const TicTacToe = ({ onBack }) => {
             <span className="ttt-score-value">{scores.X}</span>
           </div>
           
-          <div className="ttt-status-display">
+          <div className="ttt-status-display" aria-live="polite" aria-atomic="true">
             {winner ? (
               <div className="ttt-winner-announcement">Player {winner.player} Wins! 🎉</div>
             ) : isDraw ? (

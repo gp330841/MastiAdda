@@ -414,7 +414,7 @@ const Ludo = ({ onBack }) => {
               {getPlayerDisplayName(turn, playerNames)}
               <span className="turn-role">{isBot[turn] ? ' Bot' : ' You'}</span>
             </h3>
-            <div className="ludo-message">{message}</div>
+            <div className="ludo-message" aria-live="polite" aria-atomic="true">{message}</div>
           </div>
 
           <div className="player-list" aria-label="Players">
@@ -446,7 +446,13 @@ const Ludo = ({ onBack }) => {
             ))}
           </div>
 
-          <div className="dice-scene" onClick={!isBot[turn] && !hasRolled ? handleRoll : undefined}>
+          <button
+            type="button"
+            className="dice-scene"
+            onClick={handleRoll}
+            disabled={isBot[turn] || hasRolled || isRolling}
+            aria-label={isBot[turn] ? "Waiting for the bot to roll" : hasRolled ? `Rolled ${diceRoll}` : "Roll the dice"}
+          >
             <div
               className={`cube ${isRolling ? 'cube-rolling-blur' : ''}`}
               style={{ transform: `translateZ(-50px) rotateX(${diceRotation.x}deg) rotateY(${diceRotation.y}deg)` }}
@@ -462,7 +468,7 @@ const Ludo = ({ onBack }) => {
             {!isBot[turn] && !hasRolled && showRollHint && (
               <div className="roll-hint">Click Dice to Roll</div>
             )}
-          </div>
+          </button>
         </div>
 
         <div className="ludo-board-wrapper">

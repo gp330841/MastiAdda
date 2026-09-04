@@ -32,7 +32,7 @@ const TwentyFortyEight = ({ onBack }) => {
   const [touchStart, setTouchStart] = useState(null);
 
   const handleMove = useCallback((direction) => {
-    if (gameOver) return;
+    if (gameOver || won) return;
 
     let moveResult = null;
 
@@ -223,6 +223,8 @@ const TwentyFortyEight = ({ onBack }) => {
         className="board-2048"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        role="region"
+        aria-label={`2048 board. Score ${score}. Use the arrow keys, WASD, swipe, or the direction buttons to move tiles.`}
       >
         {board.map((value, idx) => (
           <div

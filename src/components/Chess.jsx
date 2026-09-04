@@ -371,13 +371,13 @@ const Chess = ({ onBack }) => {
               </div>
             </div>
             {gameStatus === 'check' && (
-              <div className="status-badge check">⚠️ Check!</div>
+              <div className="status-badge check" role="status">⚠️ Check!</div>
             )}
             {gameStatus === 'checkmate' && (
-              <div className="status-badge checkmate">♚ Checkmate! {winner?.toUpperCase()} Wins!</div>
+              <div className="status-badge checkmate" role="status">♚ Checkmate! {winner?.toUpperCase()} Wins!</div>
             )}
             {gameStatus === 'stalemate' && (
-              <div className="status-badge stalemate">🤝 Stalemate (Draw)</div>
+              <div className="status-badge stalemate" role="status">🤝 Stalemate (Draw)</div>
             )}
           </div>
 
@@ -438,7 +438,8 @@ const Chess = ({ onBack }) => {
                     const pieceColor = piece ? getPieceColor(piece) : null;
 
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={`${rowIdx}-${colIdx}`}
                         className={`chess-square ${isLight ? 'light' : 'dark'} ${
                           isSelected ? 'selected' : ''
@@ -446,6 +447,7 @@ const Chess = ({ onBack }) => {
                           isLastMoveSquare ? 'last-move' : ''
                         }`}
                         onClick={() => handleSquareClick(rowIdx, colIdx)}
+                        aria-label={`${FILES[colIdx]}${RANKS[rowIdx]}${piece ? `, ${pieceColor} ${piece}` : ', empty'}${isSelected ? ', selected' : ''}${isValidMove ? ', valid move' : ''}`}
                       >
                         {piece && (
                           <span className={`chess-piece piece-${pieceColor}`}>
@@ -453,7 +455,7 @@ const Chess = ({ onBack }) => {
                           </span>
                         )}
                         {isValidMove && <span className="chess-move-indicator"></span>}
-                      </div>
+                      </button>
                     );
                   })
                 )}

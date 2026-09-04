@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './RockPaperScissors.css';
 import { getRPSWinner, getBotChoice, getChoiceEmoji, CHOICES } from '../utils/rpsLogic';
 import {
@@ -21,6 +21,11 @@ const RockPaperScissors = ({ onBack }) => {
   const [currentPlayer, setCurrentPlayer] = useState(1);
   const [isBattling, setIsBattling] = useState(false);
   const [countdownText, setCountdownText] = useState('');
+  const countdownRef = useRef(null);
+
+  useEffect(() => () => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+  }, []);
 
   const playRound = (choice) => {
     if (!gameMode || isBattling) return;
@@ -53,16 +58,18 @@ const RockPaperScissors = ({ onBack }) => {
   };
 
   const triggerBattle = (p1, p2) => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
     setIsBattling(true);
     let step = 0;
 
-    const interval = setInterval(() => {
+    countdownRef.current = setInterval(() => {
       if (step < COUNTDOWN_STEPS.length) {
         setCountdownText(COUNTDOWN_STEPS[step]);
         playCountdownTick();
         step++;
       } else {
-        clearInterval(interval);
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
         setIsBattling(false);
         setCountdownText('');
         const winner = getRPSWinner(p1, p2);
@@ -92,6 +99,10 @@ const RockPaperScissors = ({ onBack }) => {
   };
 
   const resetRound = () => {
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+    }
     setPlayer1Choice(null);
     setPlayer2Choice(null);
     setResult(null);
@@ -178,7 +189,7 @@ const RockPaperScissors = ({ onBack }) => {
         </div>
 
         {gameMode === '2p' && !result && !isBattling && (
-          <div className="phase-info">
+          <div className="phase-info" aria-live="polite">
             {currentPlayer === 1 ? (
               <p className="turn-indicator">🎮 Player 1: Pick your move (secretly!)</p>
             ) : (
@@ -192,7 +203,7 @@ const RockPaperScissors = ({ onBack }) => {
 
         <div className="rps-game">
           {isBattling && (
-            <div className="countdown-box animate-pulse">
+            <div className="countdown-box animate-pulse" aria-live="assertive">
               <div className="countdown-hands">
                 <span className="hand-left">✊</span>
                 <span className="hand-right">✊</span>
@@ -202,7 +213,7 @@ const RockPaperScissors = ({ onBack }) => {
           )}
 
           {!isBattling && result && (
-            <div className="result-display animate-fade-in">
+            <div className="result-display animate-fade-in" aria-live="polite">
               <div className="choice-reveal">
                 <div className="choice-box">
                   <span className="choice-owner">{p1Label}</span>

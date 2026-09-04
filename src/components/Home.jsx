@@ -10,9 +10,11 @@ const Home = ({ onSelectGame }) => {
       </header>
       
       <div className="game-grid">
-        <div 
+        <button
+          type="button"
           className="game-card game-card-wrapper" 
           onClick={() => onSelectGame('tictactoe')}
+          aria-label="Play Tic Tac Toe"
         >
           <div className="card-glass">
             <div className="game-icon tictactoe-icon">
@@ -21,13 +23,15 @@ const Home = ({ onSelectGame }) => {
             </div>
             <h2>Tic Tac Toe</h2>
             <p>The classic 3x3 strategy game. Play with a friend or challenge the unbeatable Bot.</p>
-            <button className="btn-play">Play Now</button>
+            <span className="btn-play">Play Now</span>
           </div>
-        </div>
+        </button>
 
-        <div 
+        <button
+          type="button"
           className="game-card game-card-wrapper" 
           onClick={() => onSelectGame('ludo')}
+          aria-label="Play Ludo"
         >
           <div className="card-glass">
             <div className="game-icon ludo-icon">
@@ -40,13 +44,15 @@ const Home = ({ onSelectGame }) => {
             </div>
             <h2>Ludo</h2>
             <p>Race your tokens to the center in this epic board game. Play up to 4 players or Bots.</p>
-            <button className="btn-play">Play Now</button>
+            <span className="btn-play">Play Now</span>
           </div>
-        </div>
+        </button>
 
-        <div 
+        <button
+          type="button"
           className="game-card game-card-wrapper" 
           onClick={() => onSelectGame('rockpaperscissors')}
+          aria-label="Play Rock Paper Scissors"
         >
           <div className="card-glass">
             <div className="game-icon rps-icon">
@@ -56,13 +62,15 @@ const Home = ({ onSelectGame }) => {
             </div>
             <h2>Rock Paper Scissors</h2>
             <p>Challenge the computer or play with a friend. The classic hand game never gets old.</p>
-            <button className="btn-play">Play Now</button>
+            <span className="btn-play">Play Now</span>
           </div>
-        </div>
+        </button>
 
-        <div 
+        <button
+          type="button"
           className="game-card game-card-wrapper" 
           onClick={() => onSelectGame('2048')}
+          aria-label="Play 2048"
         >
           <div className="card-glass">
             <div className="game-icon game2048-icon">
@@ -73,13 +81,15 @@ const Home = ({ onSelectGame }) => {
             </div>
             <h2>2048</h2>
             <p>Slide and merge tiles to reach 2048. A fun puzzle game of numbers and strategy.</p>
-            <button className="btn-play">Play Now</button>
+            <span className="btn-play">Play Now</span>
           </div>
-        </div>
+        </button>
 
-        <div 
+        <button
+          type="button"
           className="game-card game-card-wrapper" 
           onClick={() => onSelectGame('chess')}
+          aria-label="Play Chess"
         >
           <div className="card-glass">
             <div className="game-icon chess-icon">
@@ -88,9 +98,9 @@ const Home = ({ onSelectGame }) => {
             </div>
             <h2>Chess</h2>
             <p>The ultimate strategy game. Play against the AI or challenge a friend to a match.</p>
-            <button className="btn-play">Play Now</button>
+            <span className="btn-play">Play Now</span>
           </div>
-        </div>
+        </button>
       </div>
     </div>
   );
