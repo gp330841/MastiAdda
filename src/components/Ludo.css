@@ -4,15 +4,11 @@
 .game-wrapper.ludo {
   width: 100%;
   max-width: 1200px;
-}
-
-.game-wrapper.ludo {
-  width: 100%;
-  max-width: 1200px;
   display: flex;
   flex-direction: column;
   align-items: center;
   box-sizing: border-box;
+  touch-action: pan-y pinch-zoom;
 }
 
 .game-wrapper.ludo .game-header.ludo-header {
@@ -110,6 +106,7 @@
   flex-direction: column-reverse;
   gap: 3rem;
   width: 100%;
+  touch-action: pan-y pinch-zoom;
 }
 
 @media (min-width: 900px) {
@@ -130,6 +127,7 @@
   padding: 2rem 1.5rem 2.75rem 1.5rem;
   position: relative;
   overflow: visible;
+  touch-action: pan-y pinch-zoom;
 }
 
 .active-player-panel {
@@ -293,6 +291,8 @@
   padding: 0;
   color: inherit;
   font: inherit;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .dice-scene:disabled {
@@ -402,6 +402,9 @@
   justify-content: center;
   align-items: center;
   padding: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+  touch-action: pan-y pinch-zoom;
 }
 
 .ludo-board-3d-box {
@@ -420,6 +423,7 @@
     0 0 0 11px #0f172a;
   padding: 10px;
   transform: perspective(1200px) rotateX(4deg) rotateY(-2deg);
+  touch-action: pan-y pinch-zoom;
 }
 
 .ludo-board {
@@ -437,6 +441,7 @@
     inset 0 18px 25px rgba(255,255,255,0.04),
     inset 0 -18px 20px rgba(2,6,23,0.55),
     0 0 20px rgba(148,163,184,0.06);
+  touch-action: pan-y pinch-zoom;
 }
 
 /* Base Cells */
@@ -444,6 +449,7 @@
   border-right: 1px solid rgba(255,255,255,0.08); /* neon gridlines */
   border-bottom: 1px solid rgba(255,255,255,0.08);
   box-sizing: border-box;
+  touch-action: pan-y pinch-zoom;
 }
 
 .path {
@@ -534,6 +540,8 @@
   width: 40%; height: 40%;
   z-index: 3;
   padding: 4%;
+  pointer-events: none;
+  touch-action: pan-y pinch-zoom;
 }
 
 .yard-inner-jewel {
@@ -581,11 +589,13 @@
   transition: top 0.4s ease-in-out, left 0.4s ease-in-out;
   cursor: default;
   will-change: top, left;
+  touch-action: pan-y pinch-zoom;
 }
 
 .ludo-token.playable-pulse {
   cursor: pointer;
   z-index: 20;
+  touch-action: manipulation;
 }
 
 /* The actual 3D Token Graphic */
@@ -661,6 +671,10 @@
   min-width: 38px;
   min-height: 38px;
   border-radius: 50%;
+  pointer-events: none;
+}
+
+.ludo-token.playable-pulse::before {
   pointer-events: auto;
 }
 
@@ -779,6 +793,7 @@
     padding: 0.25rem 0;
     width: 100%;
     box-sizing: border-box;
+    touch-action: pan-y pinch-zoom;
   }
 
   .ludo-board-3d-box {
@@ -788,10 +803,12 @@
     box-sizing: border-box;
     border: 2px solid #1e293b;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    touch-action: pan-y pinch-zoom;
   }
 
   .ludo-content {
     gap: 1.25rem;
+    touch-action: pan-y pinch-zoom;
   }
 
   .ludo-sidebar {
@@ -799,6 +816,7 @@
     max-width: 100%;
     padding: 1.25rem 0.75rem;
     box-sizing: border-box;
+    touch-action: pan-y pinch-zoom;
   }
 }
 

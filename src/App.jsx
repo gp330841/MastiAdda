@@ -105,6 +105,20 @@ function App() {
     });
   }, []);
 
+  // Handle scroll position on game navigation
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const scrollVal = parseInt(params.get('scroll') || '0', 10);
+    if (scrollVal > 0) {
+      setTimeout(() => {
+        window.scrollTo({ top: scrollVal, behavior: 'instant' });
+      }, 150);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [activeGame]);
+
   const handleLogin = (username) => {
     setCurrentUser(username);
     localStorage.setItem('omni_user', username);

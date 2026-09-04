@@ -3,7 +3,10 @@
   justify-content: center;
   align-items: center;
   width: 100%;
-  min-height: 80vh;
+  min-height: calc(100vh - 120px);
+  padding: 1.5rem 1rem calc(4.5rem + env(safe-area-inset-bottom, 20px)) 1rem;
+  box-sizing: border-box;
+  touch-action: pan-y pinch-zoom;
 }
 
 .auth-glass-panel {
@@ -115,78 +118,6 @@
   color: #a5b4fc;
 }
 
-.auth-demo-divider {
-  display: flex;
-  align-items: center;
-  margin: 1.5rem 0 1rem 0;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.auth-demo-divider::before,
-.auth-demo-divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.auth-demo-divider span {
-  padding: 0 0.8rem;
-}
-
-.btn-demo-login {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  padding: 0.85rem 1.25rem;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(59, 130, 246, 0.15));
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  border-radius: 0.75rem;
-  color: #34d399;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.1);
-}
-
-.btn-demo-login:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(59, 130, 246, 0.25));
-  border-color: #34d399;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.25);
-  color: #6ee7b7;
-}
-
-.btn-demo-login:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.demo-icon {
-  font-size: 1.15rem;
-}
-
-.demo-credentials-hint {
-  margin-top: 0.75rem;
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.demo-credentials-hint strong {
-  color: #38bdf8;
-  font-family: monospace;
-}
-
 .auth-toggle {
   margin-top: 1.75rem;
   font-size: 0.875rem;
@@ -206,4 +137,15 @@
 .btn-link:hover {
   text-decoration: underline;
   color: #818cf8;
+}
+
+@media (max-width: 480px) {
+  .auth-container {
+    align-items: flex-start;
+    padding: 1rem 0.5rem calc(4.5rem + env(safe-area-inset-bottom, 20px)) 0.5rem;
+  }
+
+  .auth-glass-panel {
+    padding: 2rem 1.25rem;
+  }
 }

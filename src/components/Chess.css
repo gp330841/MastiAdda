@@ -3,6 +3,7 @@
   max-width: 900px;
   margin: 0 auto;
   padding: 2rem 1rem;
+  touch-action: pan-y pinch-zoom;
 }
 
 .chess-header {
@@ -153,6 +154,7 @@
   flex-wrap: wrap;
   justify-content: center;
   align-items: flex-start;
+  touch-action: pan-y pinch-zoom;
 }
 
 .info-panel {
@@ -291,6 +293,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  touch-action: pan-y pinch-zoom;
 }
 
 .board-wrapper-with-coords {
@@ -301,11 +304,13 @@
   border-radius: 1.25rem;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  touch-action: pan-y pinch-zoom;
 }
 
 .board-middle-row {
   display: flex;
   align-items: center;
+  touch-action: pan-y pinch-zoom;
 }
 
 .board-files {
@@ -318,6 +323,7 @@
   padding: 0.35rem 1.25rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  touch-action: pan-y pinch-zoom;
 }
 
 .board-ranks {
@@ -329,6 +335,7 @@
   color: #94a3b8;
   padding: 0 0.5rem;
   height: 100%;
+  touch-action: pan-y pinch-zoom;
 }
 
 .chess-board {
@@ -340,6 +347,7 @@
   border-radius: 0.5rem;
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(0, 0, 0, 0.6);
+  touch-action: pan-y pinch-zoom;
 }
 
 .chess-square {
@@ -353,6 +361,8 @@
   padding: 0;
   font: inherit;
   user-select: none;
+  touch-action: pan-y pinch-zoom;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .chess-square.light {
@@ -411,6 +421,8 @@
   user-select: none;
   line-height: 1;
   transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  pointer-events: none;
+  touch-action: pan-y pinch-zoom;
 }
 
 .chess-piece:hover {

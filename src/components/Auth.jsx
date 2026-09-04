@@ -11,6 +11,7 @@ const Auth = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -55,56 +56,31 @@ const Auth = ({ onLogin }) => {
     }
   };
 
-  const [showPassword, setShowPassword] = useState(false);
-
-  const handleDemoLogin = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      let response = await fetch(`${API_BASE}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'demo', password: 'password123' }),
-      });
-
-      let data = null;
-      try {
-        const text = await response.text();
-        data = text ? JSON.parse(text) : null;
-      } catch {
-        data = null;
-      }
-
-      // If demo user doesn't exist yet on production D1, auto-register
-      if (!response.ok && (response.status === 401 || response.status === 404)) {
-        const regResp = await fetch(`${API_BASE}/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: 'demo', password: 'password123' }),
-        });
-        if (regResp.ok) {
-          response = await fetch(`${API_BASE}/login`, {
+  // Dev-only helper for local testing (not shown on UI)
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && (import.meta.env.DEV || window.location.search.includes('dev=1'))) {
+      window.__devDemoLogin = async () => {
+        try {
+          const response = await fetch(`${API_BASE}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: 'demo', password: 'password123' }),
           });
-          const regText = await response.text();
-          data = regText ? JSON.parse(regText) : null;
+          const text = await response.text();
+          const data = text ? JSON.parse(text) : null;
+          if (data?.token) {
+            localStorage.setItem('omni_token', data.token);
+            onLogin(data.user.username);
+          }
+        } catch (e) {
+          console.error('Dev demo login failed:', e);
         }
-      }
-
-      if (!response.ok || !data?.token) {
-        throw new Error(data?.error || `Demo login failed (Status ${response?.status || 'unknown'})`);
-      }
-
-      localStorage.setItem('omni_token', data.token);
-      onLogin(data.user.username);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      };
+      return () => {
+        delete window.__devDemoLogin;
+      };
     }
-  };
+  }, [onLogin]);
 
   const toggleView = () => {
     setIsLoginView(!isLoginView);
@@ -158,23 +134,6 @@ const Auth = ({ onLogin }) => {
             {loading ? 'Processing...' : (isLoginView ? 'Sign In' : 'Register')}
           </button>
         </form>
-
-        <div className="auth-demo-divider">
-          <span>or test instantly</span>
-        </div>
-
-        <button 
-          type="button" 
-          className="btn-demo-login" 
-          onClick={handleDemoLogin}
-          disabled={loading}
-        >
-          <span className="demo-icon">🎮</span> Instant Demo Login
-        </button>
-
-        <div className="demo-credentials-hint">
-          <span>User: <strong>demo</strong></span> • <span>Pass: <strong>password123</strong></span>
-        </div>
 
         <div className="auth-toggle">
           {isLoginView ? "Don't have an account? " : "Already have an account? "}

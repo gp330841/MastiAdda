@@ -4,19 +4,23 @@
   min-height: 100vh;
   min-height: 100dvh;
   position: relative;
-  overflow-x: hidden;
   width: 100%;
-  max-width: 100vw;
+  overflow: visible;
+  touch-action: pan-y pinch-zoom;
   box-sizing: border-box;
 }
 
 /* Stunning background decorations */
 .bg-decor {
-  position: absolute;
+  position: fixed;
   border-radius: 50%;
-  filter: blur(120px);
+  filter: blur(80px);
+  -webkit-filter: blur(80px);
   z-index: 0;
   pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+  will-change: transform;
 }
 
 .bg-decor.top-left {
@@ -40,15 +44,17 @@
 .main-content {
   position: relative;
   z-index: 1;
-  flex: 1;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 2rem;
+  justify-content: flex-start;
+  padding: 2rem 1rem calc(4rem + env(safe-area-inset-bottom, 20px)) 1rem;
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+  box-sizing: border-box;
+  touch-action: pan-y pinch-zoom;
 }
 
 /* Animations that are reusable */
@@ -238,7 +244,7 @@
   }
 
   .main-content {
-    padding: 0.75rem 0.5rem;
+    padding: 0.75rem 0.5rem calc(4.5rem + env(safe-area-inset-bottom, 20px)) 0.5rem;
   }
 }
 
@@ -272,6 +278,6 @@
   }
 
   .main-content {
-    padding: 0.5rem 0.25rem;
+    padding: 0.5rem 0.25rem calc(4rem + env(safe-area-inset-bottom, 20px)) 0.25rem;
   }
 }
