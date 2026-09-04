@@ -1,6 +1,6 @@
-# OmniGames: Web-Based Board Games
+# MastiAdda: Desi Web Games Hub
 
-A full-stack gaming platform that provides classic board games including Ludo and TicTacToe, allowing users to register, login, and play. The project separates concerns into a React frontend and an Express/SQLite backend.
+A full-stack desi gaming platform featuring classic board and puzzle games including Ludo, Tic Tac Toe, Chess, Rock Paper Scissors, and 2048, with real-time multi-session cloud score sync.
 
 ## 🚀 Walkthrough: Running the Project
 

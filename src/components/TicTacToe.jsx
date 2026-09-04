@@ -15,10 +15,27 @@ import {
 } from '../utils/gameAudio.js';
 import { getGameScore, saveGameScore, subscribeToScores } from '../utils/scoreSync.js';
 
+const TTT_STORAGE_KEY = 'omni_tictactoe_active_game';
+
 const TicTacToe = ({ onBack }) => {
-  const [board, setBoard] = useState(Array(9).fill(null));
-  const [isXNext, setIsXNext] = useState(true);
-  const [gameMode, setGameMode] = useState('1p');
+  const [savedGame] = useState(() => {
+    try {
+      const data = localStorage.getItem(TTT_STORAGE_KEY);
+      if (!data) return null;
+      const parsed = JSON.parse(data);
+      if (parsed && Array.isArray(parsed.board) && parsed.board.length === 9) {
+        return parsed;
+      }
+      return null;
+    } catch (error) {
+      void error;
+      return null;
+    }
+  });
+
+  const [board, setBoard] = useState(() => savedGame?.board || Array(9).fill(null));
+  const [isXNext, setIsXNext] = useState(() => (savedGame ? savedGame.isXNext : true));
+  const [gameMode, setGameMode] = useState(() => savedGame?.gameMode || '1p');
   const [soundEnabled, setSoundEnabled] = useState(() => isMasterSoundEnabled());
   const [scores, setScores] = useState(() => {
     const saved = getGameScore('tictactoe');
@@ -126,8 +143,35 @@ const TicTacToe = ({ onBack }) => {
     return () => clearTimeout(timer);
   }, [board, gameMode, handleScoreUpdate, isDraw, isXNext, winner]);
 
+  // Save active in-progress game so navigating away retains board
+  useEffect(() => {
+    if (winner || isDraw) {
+      localStorage.removeItem(TTT_STORAGE_KEY);
+      return;
+    }
+    const hasMoves = board.some((cell) => cell !== null);
+    if (!hasMoves) {
+      localStorage.removeItem(TTT_STORAGE_KEY);
+      return;
+    }
+    try {
+      localStorage.setItem(
+        TTT_STORAGE_KEY,
+        JSON.stringify({
+          board,
+          isXNext,
+          gameMode,
+          savedAt: Date.now(),
+        })
+      );
+    } catch (error) {
+      void error;
+    }
+  }, [board, isXNext, gameMode, winner, isDraw]);
+
   const resetGame = () => {
     playClickSound();
+    localStorage.removeItem(TTT_STORAGE_KEY);
     setBoard(Array(9).fill(null));
     setIsXNext(true);
   };

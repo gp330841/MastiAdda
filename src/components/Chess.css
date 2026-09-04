@@ -58,6 +58,55 @@
   color: var(--text-primary);
 }
 
+.resume-container {
+  margin: 0 auto 2rem auto;
+  width: 100%;
+  max-width: 440px;
+}
+
+.btn-resume {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(99, 102, 241, 0.15));
+  border: 2px solid rgba(16, 185, 129, 0.45);
+  border-radius: 1.25rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-normal);
+  box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.25);
+}
+
+.btn-resume:hover {
+  border-color: #34d399;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(99, 102, 241, 0.25));
+  transform: translateY(-3px);
+  box-shadow: 0 15px 35px -5px rgba(16, 185, 129, 0.4);
+}
+
+.resume-icon {
+  font-size: 2.2rem;
+}
+
+.resume-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.resume-text strong {
+  font-size: 1.15rem;
+  color: #34d399;
+}
+
+.resume-text span {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
 .mode-buttons {
   display: flex;
   gap: 2rem;
@@ -242,11 +291,11 @@
 .board-wrapper-with-coords {
   display: flex;
   flex-direction: column;
-  background: #1e293b;
-  padding: 0.5rem;
-  border-radius: 1rem;
-  box-shadow: var(--shadow-lg), 0 0 30px rgba(0,0,0,0.5);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: linear-gradient(145deg, #1e293b, #0f172a);
+  padding: 0.75rem;
+  border-radius: 1.25rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .board-middle-row {
@@ -260,9 +309,10 @@
   text-align: center;
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--text-secondary);
-  padding: 0.25rem 1.25rem;
+  color: #94a3b8;
+  padding: 0.35rem 1.25rem;
   text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .board-ranks {
@@ -271,8 +321,8 @@
   justify-content: space-around;
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--text-secondary);
-  padding: 0 0.4rem;
+  color: #94a3b8;
+  padding: 0 0.5rem;
   height: 100%;
 }
 
@@ -281,10 +331,10 @@
   grid-template-columns: repeat(8, 56px);
   grid-template-rows: repeat(8, 56px);
   gap: 0;
-  background: #2b2b2b;
-  border-radius: 0.35rem;
+  background: #1e1b18;
+  border-radius: 0.5rem;
   overflow: hidden;
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(0, 0, 0, 0.6);
 }
 
 .chess-square {
@@ -301,16 +351,23 @@
 }
 
 .chess-square.light {
-  background: #f0d9b5;
+  background: linear-gradient(135deg, #f5ebd7 0%, #e8d5b5 100%);
 }
 
 .chess-square.dark {
-  background: #b58863;
+  background: linear-gradient(135deg, #b88b68 0%, #9c6e4b 100%);
+}
+
+@media (hover: hover) {
+  .chess-square:hover {
+    filter: brightness(1.08);
+  }
 }
 
 .chess-square.selected {
-  background: #7dd3fc !important;
-  box-shadow: inset 0 0 12px rgba(14, 165, 233, 0.8);
+  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%) !important;
+  box-shadow: inset 0 0 14px rgba(255, 255, 255, 0.6), 0 0 20px rgba(56, 189, 248, 0.7) !important;
+  z-index: 2;
 }
 
 .chess-square.valid-move {
@@ -322,11 +379,23 @@
 }
 
 .chess-square.light.last-move {
-  background: #fef08a;
+  background: linear-gradient(135deg, #fef08a, #facc15) !important;
 }
 
 .chess-square.dark.last-move {
-  background: #ca8a04;
+  background: linear-gradient(135deg, #eab308, #ca8a04) !important;
+}
+
+.chess-square.in-check {
+  background: radial-gradient(circle, #ef4444 20%, #b91c1c 90%) !important;
+  box-shadow: inset 0 0 16px rgba(255, 255, 255, 0.5), 0 0 25px rgba(239, 68, 68, 0.85) !important;
+  z-index: 3;
+  animation: checkAura 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes checkAura {
+  0% { filter: brightness(1) drop-shadow(0 0 4px #ef4444); }
+  100% { filter: brightness(1.2) drop-shadow(0 0 14px #dc2626); }
 }
 
 .chess-piece {
@@ -345,12 +414,12 @@
 
 .piece-white {
   color: #ffffff;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 1px #000);
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 1.5px #000);
 }
 
 .piece-black {
   color: #1a1a1a;
-  filter: drop-shadow(0 2px 3px rgba(255, 255, 255, 0.35)) drop-shadow(0 0 1px #333);
+  filter: drop-shadow(0 3px 4px rgba(255, 255, 255, 0.35)) drop-shadow(0 0 1.5px #333);
 }
 
 .chess-move-indicator {
@@ -358,18 +427,30 @@
   width: 26%;
   height: 26%;
   border-radius: 50%;
-  background: rgba(16, 185, 129, 0.75);
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.9);
+  background: radial-gradient(circle, #34d399 20%, #059669 100%);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.85);
   pointer-events: none;
+  animation: pulseDot 1.4s infinite ease-in-out;
 }
 
 .chess-square:has(.chess-piece) .chess-move-indicator {
-  width: 90%;
-  height: 90%;
+  width: 86%;
+  height: 86%;
   border-radius: 50%;
   background: transparent;
-  border: 3px solid rgba(239, 68, 68, 0.8);
-  box-shadow: inset 0 0 8px rgba(239, 68, 68, 0.6);
+  border: 3.5px solid rgba(239, 68, 68, 0.85);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.6), inset 0 0 8px rgba(239, 68, 68, 0.4);
+  animation: targetPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.18); opacity: 1; }
+}
+
+@keyframes targetPulse {
+  0%, 100% { transform: scale(0.96); opacity: 0.8; }
+  50% { transform: scale(1.03); opacity: 1; }
 }
 
 .controls {

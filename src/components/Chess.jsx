@@ -28,34 +28,76 @@ import { getGameScore, saveGameScore } from '../utils/scoreSync';
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
+const CHESS_STORAGE_KEY = 'omni_chess_state';
+
+const loadSavedChessState = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(CHESS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.board) && parsed.board.length === 8 && parsed.gameMode) {
+      return parsed;
+    }
+  } catch (error) {
+    void error;
+  }
+  return null;
+};
 
 const Chess = ({ onBack }) => {
-  const [gameMode, setGameMode] = useState(null); // null, '1p', '2p'
-  const [board, setBoard] = useState(() => initBoard());
-  const [currentPlayer, setCurrentPlayer] = useState('white');
+  const savedState = useMemo(() => loadSavedChessState(), []);
+
+  const [gameMode, setGameMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('mode')) return params.get('mode');
+    }
+    return savedState?.gameMode || null;
+  });
+  const [board, setBoard] = useState(() => savedState?.board || initBoard());
+  const [currentPlayer, setCurrentPlayer] = useState(() => savedState?.currentPlayer || 'white');
   const [selectedSquare, setSelectedSquare] = useState(null);
   const [validMoves, setValidMoves] = useState([]);
-  const [moveHistory, setMoveHistory] = useState([]);
-  const [capturedPieces, setCapturedPieces] = useState({ white: [], black: [] });
+  const [moveHistory, setMoveHistory] = useState(() => savedState?.moveHistory || []);
+  const [capturedPieces, setCapturedPieces] = useState(() => savedState?.capturedPieces || { white: [], black: [] });
   const [promotionPending, setPromotionPending] = useState(null);
-  const [lastMove, setLastMove] = useState(null);
+  const [lastMove, setLastMove] = useState(() => savedState?.lastMove || null);
   const [soundEnabled, setSoundEnabled] = useState(() => isMasterSoundEnabled());
 
-  // Compute status and winner directly from board & currentPlayer
-  const { gameStatus, winner } = useMemo(() => {
-    if (isCheckmate(board, currentPlayer)) {
+  // Compute status, winner, and checked king position directly from board & currentPlayer
+  const { gameStatus, winner, checkedKingSquare } = useMemo(() => {
+    const inMate = isCheckmate(board, currentPlayer);
+    const inCheck = inMate || isInCheck(board, currentPlayer);
+
+    let kingSquare = null;
+    if (inCheck) {
+      const kingTarget = currentPlayer === 'white' ? 'K' : 'k';
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (board[r][c] === kingTarget) {
+            kingSquare = { row: r, col: c };
+            break;
+          }
+        }
+        if (kingSquare) break;
+      }
+    }
+
+    if (inMate) {
       return {
         gameStatus: 'checkmate',
         winner: currentPlayer === 'white' ? 'black' : 'white',
+        checkedKingSquare: kingSquare,
       };
     }
     if (isStalemate(board, currentPlayer)) {
-      return { gameStatus: 'stalemate', winner: null };
+      return { gameStatus: 'stalemate', winner: null, checkedKingSquare: null };
     }
-    if (isInCheck(board, currentPlayer)) {
-      return { gameStatus: 'check', winner: null };
+    if (inCheck) {
+      return { gameStatus: 'check', winner: null, checkedKingSquare: kingSquare };
     }
-    return { gameStatus: 'playing', winner: null };
+    return { gameStatus: 'playing', winner: null, checkedKingSquare: null };
   }, [board, currentPlayer]);
 
   // Material balance calculation
@@ -358,8 +400,34 @@ const Chess = ({ onBack }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [aiThinking, handleUndo, moveHistory.length]);
 
+  // Persist in-progress game state so switching games or refreshing never loses board state
+  useEffect(() => {
+    if (!gameMode) return;
+    if (gameStatus === 'checkmate' || gameStatus === 'stalemate') {
+      localStorage.removeItem(CHESS_STORAGE_KEY);
+      return;
+    }
+    try {
+      localStorage.setItem(
+        CHESS_STORAGE_KEY,
+        JSON.stringify({
+          gameMode,
+          board,
+          currentPlayer,
+          moveHistory,
+          capturedPieces,
+          lastMove,
+          savedAt: Date.now(),
+        })
+      );
+    } catch (error) {
+      void error;
+    }
+  }, [gameMode, board, currentPlayer, moveHistory, capturedPieces, lastMove, gameStatus]);
+
   const handleNewGame = () => {
     playClickSound();
+    localStorage.removeItem(CHESS_STORAGE_KEY);
     setBoard(initBoard());
     setCurrentPlayer('white');
     setSelectedSquare(null);
@@ -372,8 +440,16 @@ const Chess = ({ onBack }) => {
 
   const handleStartGame = (mode) => {
     playClickSound();
+    localStorage.removeItem(CHESS_STORAGE_KEY);
     setGameMode(mode);
-    handleNewGame();
+    setBoard(initBoard());
+    setCurrentPlayer('white');
+    setSelectedSquare(null);
+    setValidMoves([]);
+    setMoveHistory([]);
+    setCapturedPieces({ white: [], black: [] });
+    setPromotionPending(null);
+    setLastMove(null);
   };
 
   if (!gameMode) {
@@ -387,8 +463,34 @@ const Chess = ({ onBack }) => {
 
         <div className="mode-selector">
           <h2>Select Game Mode</h2>
+
+          {savedState && (
+            <div className="resume-container">
+              <button
+                type="button"
+                className="btn-resume"
+                onClick={() => {
+                  playClickSound();
+                  setGameMode(savedState.gameMode);
+                  setBoard(savedState.board);
+                  setCurrentPlayer(savedState.currentPlayer);
+                  setMoveHistory(savedState.moveHistory || []);
+                  setCapturedPieces(savedState.capturedPieces || { white: [], black: [] });
+                  setLastMove(savedState.lastMove || null);
+                }}
+              >
+                <div className="resume-icon">▶️</div>
+                <div className="resume-text">
+                  <strong>Resume In-Progress Game</strong>
+                  <span>{savedState.gameMode === '1p' ? 'vs Computer' : '2 Players'} • Turn: {savedState.currentPlayer?.toUpperCase()} • {savedState.moveHistory?.length || 0} moves</span>
+                </div>
+              </button>
+            </div>
+          )}
+
           <div className="mode-buttons">
             <button 
+              type="button"
               className="btn-mode"
               onClick={() => handleStartGame('1p')}
             >
@@ -396,6 +498,7 @@ const Chess = ({ onBack }) => {
               <span>vs Computer</span>
             </button>
             <button 
+              type="button"
               className="btn-mode"
               onClick={() => handleStartGame('2p')}
             >
@@ -508,6 +611,10 @@ const Chess = ({ onBack }) => {
                       lastMove &&
                       ((lastMove.from.row === rowIdx && lastMove.from.col === colIdx) ||
                         (lastMove.to.row === rowIdx && lastMove.to.col === colIdx));
+                    const isCheckedKing =
+                      checkedKingSquare &&
+                      checkedKingSquare.row === rowIdx &&
+                      checkedKingSquare.col === colIdx;
 
                     const pieceColor = piece ? getPieceColor(piece) : null;
 
@@ -519,9 +626,9 @@ const Chess = ({ onBack }) => {
                           isSelected ? 'selected' : ''
                         } ${isValidMove ? 'valid-move' : ''} ${
                           isLastMoveSquare ? 'last-move' : ''
-                        }`}
+                        } ${isCheckedKing ? 'in-check' : ''}`}
                         onClick={() => handleSquareClick(rowIdx, colIdx)}
-                        aria-label={`${FILES[colIdx]}${RANKS[rowIdx]}${piece ? `, ${pieceColor} ${piece}` : ', empty'}${isSelected ? ', selected' : ''}${isValidMove ? ', valid move' : ''}`}
+                        aria-label={`${FILES[colIdx]}${RANKS[rowIdx]}${piece ? `, ${pieceColor} ${piece}` : ', empty'}${isSelected ? ', selected' : ''}${isValidMove ? ', valid move' : ''}${isCheckedKing ? ', in check' : ''}`}
                       >
                         {piece && (
                           <span className={`chess-piece piece-${pieceColor}`}>

@@ -64,28 +64,63 @@ const getStorageKey = (username) => {
 };
 
 /**
- * Load cached scores from localStorage
+ * Load cached scores from localStorage with legacy 2048 and guest migration
  */
 export const loadCachedScores = (username) => {
   if (typeof window === 'undefined') return {};
+  let scores = {};
+
   try {
     const raw = localStorage.getItem(getStorageKey(username));
     if (raw) {
-      return JSON.parse(raw);
+      scores = JSON.parse(raw);
     }
   } catch {
     // Fallback to empty
   }
-  return {};
+
+  // Merge guest scores if user is logged in
+  if (username) {
+    try {
+      const guestRaw = localStorage.getItem('omni_scores_guest');
+      if (guestRaw) {
+        const guestScores = JSON.parse(guestRaw);
+        scores = mergeScores(scores, guestScores);
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  // Migrate standalone legacy 2048_best_score if present
+  try {
+    const legacy2048 = parseInt(localStorage.getItem('2048_best_score') || '0', 10);
+    const current2048 = Number(scores['2048']?.highScore) || 0;
+    if (legacy2048 > current2048) {
+      scores['2048'] = {
+        highScore: legacy2048,
+        stats: scores['2048']?.stats || {},
+        updatedAt: new Date().toISOString(),
+      };
+    }
+  } catch {
+    // Ignore
+  }
+
+  return scores;
 };
 
 /**
- * Save cached scores to localStorage
+ * Save cached scores to localStorage and mirror standalone keys
  */
 const saveCachedScores = (username, scores) => {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(getStorageKey(username), JSON.stringify(scores));
+    // Keep legacy 2048_best_score key synchronized
+    if (scores['2048']?.highScore) {
+      localStorage.setItem('2048_best_score', scores['2048'].highScore.toString());
+    }
   } catch {
     // Graceful storage quota fallback
   }
@@ -110,7 +145,36 @@ export const getGameScore = (gameId) => {
 };
 
 /**
- * Fetch remote scores from Cloudflare D1 / server
+ * Push a single score to Cloudflare D1 / server with keepalive support
+ */
+export const pushScoreToCloud = async (gameId, highScore, stats = {}, token = null) => {
+  if (typeof window === 'undefined') return false;
+  const authToken = token || localStorage.getItem('omni_token');
+  if (!authToken) return false;
+
+  try {
+    const res = await fetch(`${API_BASE}/scores`, {
+      method: 'POST',
+      keepalive: true,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({
+        gameId,
+        highScore,
+        stats,
+      }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn(`Could not sync ${gameId} score to cloud (will retry on focus):`, err);
+    return false;
+  }
+};
+
+/**
+ * Fetch remote scores from Cloudflare D1 / server and perform bidirectional sync
  */
 export const fetchRemoteScores = async () => {
   if (typeof window === 'undefined') return cachedScores;
@@ -127,11 +191,38 @@ export const fetchRemoteScores = async () => {
 
     if (!res.ok) return cachedScores;
 
-    const data = await res.json();
+    let data = null;
+    try {
+      const text = await res.text();
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+
     if (data && data.scores) {
-      cachedScores = mergeScores(cachedScores, data.scores);
+      const remote = data.scores;
+      const merged = mergeScores(cachedScores, remote);
+
+      // Bidirectional sync: if local device achieved higher score than remote cloud,
+      // upload the higher local score to cloud immediately
+      const toUpload = [];
+      Object.entries(cachedScores).forEach(([gId, localVal]) => {
+        const localHigh = Number(localVal?.highScore) || 0;
+        const remoteHigh = Number(remote[gId]?.highScore) || 0;
+        if (localHigh > remoteHigh) {
+          toUpload.push({ gameId: gId, highScore: localHigh, stats: localVal?.stats || {} });
+        }
+      });
+
+      cachedScores = merged;
       saveCachedScores(user, cachedScores);
       notifyListeners();
+
+      if (toUpload.length > 0) {
+        for (const item of toUpload) {
+          await pushScoreToCloud(item.gameId, item.highScore, item.stats, token);
+        }
+      }
     }
   } catch {
     // Offline or network error - gracefully rely on cached scores
@@ -176,39 +267,35 @@ export const saveGameScore = async (gameId, { highScore = 0, stats = {} }) => {
     }
   }
 
-  // Sync to Cloudflare D1
+  // Push to Cloudflare D1
   if (token && user) {
-    try {
-      await fetch(`${API_BASE}/scores`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          gameId,
-          highScore: updatedHighScore,
-          stats: updatedStats,
-        }),
-      });
-    } catch {
-      // Offline: will sync next time online or on tab focus
-    }
+    await pushScoreToCloud(gameId, updatedHighScore, updatedStats, token);
   }
 };
+
+let currentSyncedUser = null;
 
 /**
  * Initialize cross-tab and cross-device score syncing
  */
-export const initScoreSync = () => {
-  if (typeof window === 'undefined' || isInitialized) return;
-  isInitialized = true;
+export const initScoreSync = (forceUser = null) => {
+  if (typeof window === 'undefined') return;
+  const user = forceUser || localStorage.getItem('omni_user');
 
-  const user = localStorage.getItem('omni_user');
+  if (isInitialized && currentSyncedUser === user) {
+    // Re-check remote scores on explicit call
+    fetchRemoteScores();
+    return;
+  }
+
+  isInitialized = true;
+  currentSyncedUser = user;
+
   cachedScores = loadCachedScores(user);
+  saveCachedScores(user, cachedScores);
   notifyListeners();
 
-  // Initial fetch from cloud
+  // Initial bidirectional fetch from cloud
   fetchRemoteScores();
 
   // Multi-tab sync via BroadcastChannel
@@ -222,6 +309,11 @@ export const initScoreSync = () => {
     };
   }
 
+  // Auto-sync on network reconnect
+  window.addEventListener('online', () => {
+    fetchRemoteScores();
+  });
+
   // Cross-device sync: when window gains focus or tab becomes visible again
   window.addEventListener('focus', () => {
     fetchRemoteScores();
@@ -233,16 +325,12 @@ export const initScoreSync = () => {
     }
   });
 
-  // Storage event fallback for cross-tab sync
+  // Storage event fallback for cross-tab sync and direct 2048 key updates
   window.addEventListener('storage', (e) => {
-    if (e.key && e.key.startsWith('omni_scores_')) {
-      try {
-        const updated = JSON.parse(e.newValue || '{}');
-        cachedScores = mergeScores(cachedScores, updated);
-        notifyListeners();
-      } catch {
-        // Ignore JSON error
-      }
+    if (e.key && (e.key.startsWith('omni_scores_') || e.key === '2048_best_score')) {
+      const activeUser = localStorage.getItem('omni_user');
+      cachedScores = loadCachedScores(activeUser);
+      notifyListeners();
     }
   });
 };

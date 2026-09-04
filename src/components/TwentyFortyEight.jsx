@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './TwentyFortyEight.css';
 import {
   initBoard,
@@ -23,30 +23,127 @@ import {
 } from '../utils/gameAudio.js';
 import { getGameScore, saveGameScore, subscribeToScores } from '../utils/scoreSync.js';
 
+const ACTIVE_GAME_KEY = 'omni_2048_active_game';
+
 const TwentyFortyEight = ({ onBack }) => {
-  const [board, setBoard] = useState(() => initBoard());
-  const [score, setScore] = useState(0);
+  const [savedGame] = useState(() => {
+    try {
+      const data = localStorage.getItem(ACTIVE_GAME_KEY);
+      if (!data) return null;
+      const parsed = JSON.parse(data);
+      if (parsed && Array.isArray(parsed.board) && parsed.board.length === 16) {
+        return parsed;
+      }
+      return null;
+    } catch (error) {
+      void error;
+      return null;
+    }
+  });
+
+  const [board, setBoard] = useState(() => savedGame?.board || initBoard());
+  const [score, setScore] = useState(() => (typeof savedGame?.score === 'number' ? savedGame.score : 0));
   const [soundEnabled, setSoundEnabled] = useState(() => isMasterSoundEnabled());
   const [bestScore, setBestScore] = useState(() => {
     const local = parseInt(localStorage.getItem('2048_best_score') || '0', 10);
     const remote = getGameScore('2048')?.highScore || 0;
-    return Math.max(local, remote);
+    return Math.max(local, remote, typeof savedGame?.score === 'number' ? savedGame.score : 0);
   });
   const [gameOver, setGameOver] = useState(false);
-  const [won, setWon] = useState(false);
-  const [hasDismissedWin, setHasDismissedWin] = useState(false);
-  const [history, setHistory] = useState([]);
+  const [won, setWon] = useState(() => savedGame?.won || false);
+  const [hasDismissedWin, setHasDismissedWin] = useState(() => savedGame?.hasDismissedWin || false);
+  const [history, setHistory] = useState(() => savedGame?.history || []);
   const [touchStart, setTouchStart] = useState(null);
+  const syncTimerRef = useRef(null);
+
+  // Reconcile and persist in-progress game so navigating away retains board
+  useEffect(() => {
+    if (gameOver) {
+      localStorage.removeItem(ACTIVE_GAME_KEY);
+      return;
+    }
+    try {
+      localStorage.setItem(
+        ACTIVE_GAME_KEY,
+        JSON.stringify({
+          board,
+          score,
+          won,
+          hasDismissedWin,
+          history,
+          savedAt: Date.now(),
+        })
+      );
+    } catch (error) {
+      void error;
+    }
+  }, [board, score, gameOver, won, hasDismissedWin, history]);
+
+  // Immediately reconcile local high score with cloud on mount
+  useEffect(() => {
+    const local = parseInt(localStorage.getItem('2048_best_score') || '0', 10);
+    const remote = getGameScore('2048')?.highScore || 0;
+    const effective = Math.max(local, remote);
+    if (effective > 0) {
+      localStorage.setItem('2048_best_score', effective.toString());
+      saveGameScore('2048', { highScore: effective });
+    }
+  }, []);
 
   // Subscribe to live multi-session score updates across devices
   useEffect(() => {
     const unsub = subscribeToScores((allScores) => {
       const saved = allScores['2048'];
       if (saved && saved.highScore > 0) {
-        setBestScore((curr) => Math.max(curr, saved.highScore));
+        setBestScore((curr) => {
+          const next = Math.max(curr, saved.highScore);
+          localStorage.setItem('2048_best_score', next.toString());
+          return next;
+        });
       }
     });
     return unsub;
+  }, []);
+
+  // Debounced cloud push to prevent network spam during rapid mobile swipes
+  const persistHighScore = useCallback((high) => {
+    setBestScore(high);
+    localStorage.setItem('2048_best_score', high.toString());
+
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+    }
+    syncTimerRef.current = setTimeout(() => {
+      saveGameScore('2048', { highScore: high });
+    }, 350);
+  }, []);
+
+  // Guaranteed flush on visibility change, pagehide, and unmount
+  useEffect(() => {
+    const flushScore = () => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+      }
+      const current = parseInt(localStorage.getItem('2048_best_score') || '0', 10);
+      if (current > 0) {
+        saveGameScore('2048', { highScore: current });
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') flushScore();
+    };
+
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pagehide', flushScore);
+    window.addEventListener('beforeunload', flushScore);
+
+    return () => {
+      flushScore();
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pagehide', flushScore);
+      window.removeEventListener('beforeunload', flushScore);
+    };
   }, []);
 
   const handleMove = useCallback((direction) => {
@@ -89,22 +186,26 @@ const TwentyFortyEight = ({ onBack }) => {
       setBoard(newBoard);
 
       if (newScore > bestScore) {
-        setBestScore(newScore);
-        localStorage.setItem('2048_best_score', newScore.toString());
-        saveGameScore('2048', { highScore: newScore });
+        persistHighScore(newScore);
       }
 
       if (!hasDismissedWin && !won && hasWon(newBoard)) {
         setWon(true);
         playWinSound();
+        const finalBest = Math.max(bestScore, newScore);
+        if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+        saveGameScore('2048', { highScore: finalBest });
       }
 
       if (hasLost(newBoard)) {
         setGameOver(true);
         playLoseSound();
+        const finalBest = Math.max(bestScore, newScore);
+        if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+        saveGameScore('2048', { highScore: finalBest });
       }
     }
-  }, [board, gameOver, score, bestScore, hasDismissedWin, won]);
+  }, [board, gameOver, score, bestScore, hasDismissedWin, won, persistHighScore]);
 
   const handleUndo = useCallback(() => {
     if (history.length > 0) {
@@ -120,6 +221,7 @@ const TwentyFortyEight = ({ onBack }) => {
 
   const handleNewGame = useCallback(() => {
     playClickSound();
+    localStorage.removeItem(ACTIVE_GAME_KEY);
     const newBoard = initBoard();
     setBoard(newBoard);
     setScore(0);
@@ -237,7 +339,18 @@ const TwentyFortyEight = ({ onBack }) => {
   return (
     <div className="game-2048 animate-fade-in">
       <div className="game-header-2048">
-        <button className="btn-back" onClick={onBack}>← Back</button>
+        <button
+          type="button"
+          className="btn-back"
+          onClick={() => {
+            if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+            const current = parseInt(localStorage.getItem('2048_best_score') || '0', 10);
+            if (current > 0) saveGameScore('2048', { highScore: current });
+            onBack();
+          }}
+        >
+          ← Back
+        </button>
         <h1>2048</h1>
         <div className="header-actions">
           <button
@@ -271,13 +384,14 @@ const TwentyFortyEight = ({ onBack }) => {
         className="board-2048"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => setTouchStart(null)}
         role="region"
         aria-label={`2048 board. Score ${score}. Use the arrow keys, WASD, swipe, or the direction buttons to move tiles.`}
       >
         {board.map((value, idx) => (
           <div
             key={idx}
-            className={`tile-2048 ${value > 0 ? 'has-value' : ''} ${getTileFontSizeClass(value)}`}
+            className={`tile-2048 ${value > 0 ? 'has-value' : ''} ${getTileFontSizeClass(value)} ${value >= 1024 ? 'tile-gold' : ''}`}
             aria-label={value > 0 ? `Tile ${value}` : 'Empty tile'}
             style={
               value > 0

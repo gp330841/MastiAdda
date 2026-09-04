@@ -20,9 +20,17 @@ export const onRequestGet = async ({ request, env }) => {
 
     await ensureTable(env.DB);
 
+    let userId = token.id;
+    if (!userId && token.username) {
+      const user = await env.DB.prepare('SELECT id FROM users WHERE username = ?')
+        .bind(token.username).first();
+      userId = user?.id;
+    }
+    if (!userId) return json({ error: 'User not found' }, 404);
+
     const { results } = await env.DB.prepare(
       'SELECT game_id, high_score, stats_json, updated_at FROM game_scores WHERE user_id = ?'
-    ).bind(token.id).all();
+    ).bind(userId).all();
 
     const scores = {};
     if (Array.isArray(results)) {
@@ -63,10 +71,18 @@ export const onRequestPost = async ({ request, env }) => {
 
     await ensureTable(env.DB);
 
+    let userId = token.id;
+    if (!userId && token.username) {
+      const user = await env.DB.prepare('SELECT id FROM users WHERE username = ?')
+        .bind(token.username).first();
+      userId = user?.id;
+    }
+    if (!userId) return json({ error: 'User not found' }, 404);
+
     // Retrieve existing to merge stats cleanly if needed
     const existing = await env.DB.prepare(
       'SELECT high_score, stats_json FROM game_scores WHERE user_id = ? AND game_id = ?'
-    ).bind(token.id, gameId).first();
+    ).bind(userId, gameId).first();
 
     const safeHighScore = Math.max(
       Number(highScore) || 0,
@@ -93,10 +109,10 @@ export const onRequestPost = async ({ request, env }) => {
       INSERT INTO game_scores (user_id, game_id, high_score, stats_json, updated_at)
       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(user_id, game_id) DO UPDATE SET
-        high_score = MAX(game_scores.high_score, excluded.high_score),
+        high_score = CASE WHEN excluded.high_score > game_scores.high_score THEN excluded.high_score ELSE game_scores.high_score END,
         stats_json = excluded.stats_json,
         updated_at = CURRENT_TIMESTAMP
-    `).bind(token.id, gameId, safeHighScore, statsString).run();
+    `).bind(userId, gameId, safeHighScore, statsString).run();
 
     return json({
       message: 'Score updated successfully',

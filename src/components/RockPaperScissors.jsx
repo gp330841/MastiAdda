@@ -16,7 +16,11 @@ import { getGameScore, saveGameScore, subscribeToScores } from '../utils/scoreSy
 const COUNTDOWN_STEPS = ['Rock...', 'Paper...', 'Scissors...', 'SHOOT!'];
 
 const RockPaperScissors = ({ onBack }) => {
-  const [gameMode, setGameMode] = useState(null); // '1p' or '2p'
+  const [gameMode, setGameMode] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('mode') || null;
+  }); // '1p' or '2p'
   const [player1Choice, setPlayer1Choice] = useState(null);
   const [player2Choice, setPlayer2Choice] = useState(null);
   const [result, setResult] = useState(null);

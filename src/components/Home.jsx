@@ -50,8 +50,8 @@ const Home = ({ onSelectGame }) => {
   return (
     <div className="home-container animate-fade-in">
       <header className="home-header">
-        <h1>OmniGames Arcade</h1>
-        <p className="subtitle">Select a classic to start playing.</p>
+        <h1>MastiAdda</h1>
+        <p className="subtitle">अपना देसी गेमिंग अड्डा • Select a game to play</p>
       </header>
       
       <div className="game-grid">

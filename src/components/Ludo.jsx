@@ -36,15 +36,32 @@ const getPlayerDisplayName = (color, playerNames) => {
   return value || DEFAULT_PLAYER_NAMES[color];
 };
 
+const LUDO_STORAGE_KEY = 'omni_ludo_active_game';
+
 const Ludo = ({ onBack }) => {
-  const [players, setPlayers] = useState(buildInitialPlayers());
-  const [turn, setTurn] = useState('red');
-  const [diceRoll, setDiceRoll] = useState(1);
+  const [savedGame] = useState(() => {
+    try {
+      const data = localStorage.getItem(LUDO_STORAGE_KEY);
+      if (!data) return null;
+      const parsed = JSON.parse(data);
+      if (parsed && parsed.players && parsed.turn && !parsed.winner) {
+        return parsed;
+      }
+      return null;
+    } catch (error) {
+      void error;
+      return null;
+    }
+  });
+
+  const [players, setPlayers] = useState(() => savedGame?.players || buildInitialPlayers());
+  const [turn, setTurn] = useState(() => savedGame?.turn || 'red');
+  const [diceRoll, setDiceRoll] = useState(() => savedGame?.diceRoll || 1);
   const [isRolling, setIsRolling] = useState(false);
-  const [message, setMessage] = useState('Red to roll!');
-  const [hasRolled, setHasRolled] = useState(false);
-  const [activePlayers, setActivePlayers] = useState(['red', 'green', 'yellow', 'blue']);
-  const [isBot, setIsBot] = useState({
+  const [message, setMessage] = useState(() => savedGame?.message || 'Red to roll!');
+  const [hasRolled, setHasRolled] = useState(() => savedGame?.hasRolled || false);
+  const [activePlayers, setActivePlayers] = useState(() => savedGame?.activePlayers || ['red', 'green', 'yellow', 'blue']);
+  const [isBot, setIsBot] = useState(() => savedGame?.isBot || {
     red: false,
     green: true,
     yellow: true,
@@ -53,8 +70,34 @@ const Ludo = ({ onBack }) => {
   const [diceRotation, setDiceRotation] = useState({ x: 0, y: 0 });
   const [soundEnabled, setSoundEnabled] = useState(() => isMasterSoundEnabled());
   const [winner, setWinner] = useState(null);
-  const [showRollHint, setShowRollHint] = useState(true);
-  const [playerNames, setPlayerNames] = useState(DEFAULT_PLAYER_NAMES);
+  const [showRollHint, setShowRollHint] = useState(() => !savedGame?.hasRolled);
+  const [playerNames, setPlayerNames] = useState(() => savedGame?.playerNames || DEFAULT_PLAYER_NAMES);
+
+  // Persist in-progress game state to storage
+  useEffect(() => {
+    if (winner) {
+      localStorage.removeItem(LUDO_STORAGE_KEY);
+      return;
+    }
+    try {
+      localStorage.setItem(
+        LUDO_STORAGE_KEY,
+        JSON.stringify({
+          players,
+          turn,
+          activePlayers,
+          isBot,
+          diceRoll,
+          message,
+          hasRolled,
+          playerNames,
+          savedAt: Date.now(),
+        })
+      );
+    } catch (error) {
+      void error;
+    }
+  }, [players, turn, activePlayers, isBot, diceRoll, message, hasRolled, playerNames, winner]);
 
   const playableTokens = useMemo(() => getPlayableTokens(turn, players, diceRoll), [turn, players, diceRoll]);
 
@@ -269,6 +312,7 @@ const Ludo = ({ onBack }) => {
   }, [handleRoll, hasRolled, isBot, isRolling, turn, winner]);
 
   const setMode = (mode) => {
+    localStorage.removeItem(LUDO_STORAGE_KEY);
     if (mode === '1p') {
       setIsBot({ red: false, green: true, yellow: true, blue: true });
       setActivePlayers(['red', 'green', 'yellow', 'blue']);
@@ -412,11 +456,17 @@ const Ludo = ({ onBack }) => {
     <div className="game-wrapper animate-fade-in ludo">
       <header className="game-header">
         <button className="btn-outline back-btn" onClick={onBack}>← Back</button>
-        <h2 className="game-title">Omni Ludo</h2>
-        <div className="mode-selector">
-          <button className={`mode-btn ${activePlayers.length === 4 && isBot.green ? 'active' : ''}`} onClick={() => setMode('1p')}>1P vs Bots</button>
-          <button className={`mode-btn ${activePlayers.length === 2 ? 'active' : ''}`} onClick={() => setMode('2p')}>2 Player</button>
-          <button className={`mode-btn ${activePlayers.length === 4 && !isBot.green ? 'active' : ''}`} onClick={() => setMode('4p')}>4 Player</button>
+        <h2 className="game-title">Masti Ludo</h2>
+        <div className="ludo-mode-selector">
+          <button className={`ludo-mode-btn ${activePlayers.length === 4 && isBot.green ? 'active' : ''}`} onClick={() => setMode('1p')}>
+            <span>🤖</span> 1P vs Bots
+          </button>
+          <button className={`ludo-mode-btn ${activePlayers.length === 2 ? 'active' : ''}`} onClick={() => setMode('2p')}>
+            <span>👥</span> 2 Player
+          </button>
+          <button className={`ludo-mode-btn ${activePlayers.length === 4 && !isBot.green ? 'active' : ''}`} onClick={() => setMode('4p')}>
+            <span>🎮</span> 4 Player
+          </button>
         </div>
         <button
           className="btn-outline"
@@ -469,29 +519,31 @@ const Ludo = ({ onBack }) => {
             ))}
           </div>
 
-          <button
-            type="button"
-            className="dice-scene"
-            onClick={handleRoll}
-            disabled={isBot[turn] || hasRolled || isRolling}
-            aria-label={isBot[turn] ? "Waiting for the bot to roll" : hasRolled ? `Rolled ${diceRoll}` : "Roll the dice"}
-          >
-            <div
-              className={`cube ${isRolling ? 'cube-rolling-blur' : ''}`}
-              style={{ transform: `translateZ(-50px) rotateX(${diceRotation.x}deg) rotateY(${diceRotation.y}deg)` }}
+          <div className="dice-container">
+            <button
+              type="button"
+              className="dice-scene"
+              onClick={handleRoll}
+              disabled={isBot[turn] || hasRolled || isRolling}
+              aria-label={isBot[turn] ? "Waiting for the bot to roll" : hasRolled ? `Rolled ${diceRoll}` : "Roll the dice"}
             >
-              <div className="cube__face cube__face--front">{renderDiceValue(1)}</div>
-              <div className="cube__face cube__face--up">{renderDiceValue(2)}</div>
-              <div className="cube__face cube__face--right">{renderDiceValue(3)}</div>
-              <div className="cube__face cube__face--left">{renderDiceValue(4)}</div>
-              <div className="cube__face cube__face--down">{renderDiceValue(5)}</div>
-              <div className="cube__face cube__face--back">{renderDiceValue(6)}</div>
-            </div>
+              <div
+                className={`cube ${isRolling ? 'cube-rolling-blur' : ''}`}
+                style={{ transform: `translateZ(-50px) rotateX(${diceRotation.x}deg) rotateY(${diceRotation.y}deg)` }}
+              >
+                <div className="cube__face cube__face--front">{renderDiceValue(1)}</div>
+                <div className="cube__face cube__face--up">{renderDiceValue(2)}</div>
+                <div className="cube__face cube__face--right">{renderDiceValue(3)}</div>
+                <div className="cube__face cube__face--left">{renderDiceValue(4)}</div>
+                <div className="cube__face cube__face--down">{renderDiceValue(5)}</div>
+                <div className="cube__face cube__face--back">{renderDiceValue(6)}</div>
+              </div>
+            </button>
 
             {!isBot[turn] && !hasRolled && showRollHint && (
               <div className="roll-hint">Click Dice to Roll</div>
             )}
-          </button>
+          </div>
         </div>
 
         <div className="ludo-board-wrapper">

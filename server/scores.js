@@ -92,7 +92,7 @@ router.post('/', authenticateToken, async (req, res) => {
       INSERT INTO game_scores (user_id, game_id, high_score, stats_json, updated_at)
       VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(user_id, game_id) DO UPDATE SET
-        high_score = MAX(game_scores.high_score, excluded.high_score),
+        high_score = CASE WHEN excluded.high_score > game_scores.high_score THEN excluded.high_score ELSE game_scores.high_score END,
         stats_json = excluded.stats_json,
         updated_at = CURRENT_TIMESTAMP
     `, [user.id, gameId, safeHighScore, statsString]);

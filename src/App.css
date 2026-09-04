@@ -49,12 +49,7 @@
 
 /* Animations that are reusable */
 .game-card-wrapper {
-  animation: fadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  opacity: 0;
-}
-
-.game-card-wrapper:nth-child(2) {
-  animation-delay: 0.2s;
+  animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* Layout for header common in games */

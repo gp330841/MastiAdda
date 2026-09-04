@@ -12,17 +12,24 @@ import { isMasterSoundEnabled, setMasterSoundEnabled, playClickSound } from './u
 
 const GAME_NAMES = {
   tictactoe: 'Tic Tac Toe',
-  ludo: 'Omni Ludo',
+  ludo: 'Masti Ludo',
   rockpaperscissors: 'Rock Paper Scissors',
   '2048': '2048',
   chess: 'Chess',
 };
 
 function App() {
-  const [activeGame, setActiveGame] = useState('home');
+  const [activeGame, setActiveGame] = useState(() => {
+    if (typeof window === 'undefined') return 'home';
+    const params = new URLSearchParams(window.location.search);
+    return params.get('game') || 'home';
+  });
   const [soundOn, setSoundOn] = useState(() => isMasterSoundEnabled());
   const [currentUser, setCurrentUser] = useState(() => {
-    return typeof window !== 'undefined' ? localStorage.getItem('omni_user') : null;
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('demo') === '1') return 'demo';
+    return localStorage.getItem('omni_user');
   });
   const [loading, setLoading] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -34,12 +41,35 @@ function App() {
   // Initialize multi-session score sync
   useEffect(() => {
     if (currentUser) {
-      initScoreSync();
+      initScoreSync(currentUser);
     }
   }, [currentUser]);
 
   // Check valid session on mount
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const isDemoParam = params.get('demo') === '1';
+
+    if (isDemoParam) {
+      // Auto-authenticate demo user for headless testing & preview
+      fetch(`${import.meta.env.VITE_API_BASE || '/api/auth'}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'demo', password: 'password123' })
+      })
+      .then(async (res) => {
+        const text = await res.text();
+        const data = text ? JSON.parse(text) : null;
+        if (data?.token) {
+          localStorage.setItem('omni_token', data.token);
+          localStorage.setItem('omni_user', 'demo');
+          setCurrentUser('demo');
+        }
+      })
+      .catch(() => {});
+      return;
+    }
+
     const token = localStorage.getItem('omni_token');
     if (!token) return;
 
@@ -55,13 +85,16 @@ function App() {
         'Authorization': `Bearer ${token}`
       }
     })
-    .then(res => {
-      if (res.ok) return res.json();
-      throw new Error('Invalid token');
+    .then(async (res) => {
+      if (!res.ok) throw new Error('Invalid token');
+      const text = await res.text();
+      return text ? JSON.parse(text) : null;
     })
-    .then(data => {
-      setCurrentUser(data.user.username);
-      localStorage.setItem('omni_user', data.user.username);
+    .then((data) => {
+      if (data?.user?.username) {
+        setCurrentUser(data.user.username);
+        localStorage.setItem('omni_user', data.user.username);
+      }
     })
     .catch(() => {
       localStorage.removeItem('omni_token');
@@ -75,13 +108,17 @@ function App() {
   const handleLogin = (username) => {
     setCurrentUser(username);
     localStorage.setItem('omni_user', username);
-    initScoreSync();
+    initScoreSync(username);
   };
 
   const handleLogout = () => {
     playClickSound();
     localStorage.removeItem('omni_token');
     localStorage.removeItem('omni_user');
+    localStorage.removeItem('omni_chess_state');
+    localStorage.removeItem('omni_2048_active_game');
+    localStorage.removeItem('omni_ludo_active_game');
+    localStorage.removeItem('omni_tictactoe_active_game');
     setCurrentUser(null);
     setActiveGame('home');
   };
@@ -95,7 +132,7 @@ function App() {
 
   const renderGame = () => {
     if (loading) {
-      return <div className="loader">Loading OmniGames...</div>;
+      return <div className="loader">Loading MastiAdda...</div>;
     }
 
     if (!currentUser) {
@@ -132,10 +169,10 @@ function App() {
               type="button"
               className="nav-brand-btn"
               onClick={() => { playClickSound(); setActiveGame('home'); }}
-              aria-label="Return to arcade games home"
+              aria-label="Return to MastiAdda home"
             >
               <span className="brand-logo">🎮</span>
-              <span className="brand-text">OmniGames</span>
+              <span className="brand-text">MastiAdda</span>
             </button>
             {activeGame !== 'home' && (
               <span className="nav-breadcrumb">
@@ -165,7 +202,7 @@ function App() {
               type="button"
               className="btn-outline btn-sm nav-logout-btn"
               onClick={handleLogout}
-              aria-label="Log out of OmniGames"
+              aria-label="Log out of MastiAdda"
             >
               Logout
             </button>

@@ -6,6 +6,57 @@
   max-width: 1200px;
 }
 
+.game-wrapper.ludo .game-header {
+  max-width: 100%;
+  gap: 1.25rem;
+}
+
+.game-wrapper.ludo .game-title {
+  white-space: nowrap;
+}
+
+.ludo-mode-selector {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 2rem;
+  padding: 0.3rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  gap: 0.25rem;
+}
+
+.ludo-mode-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  padding: 0.5rem 1.1rem;
+  border-radius: 1.5rem;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+
+.ludo-mode-btn:hover:not(.active) {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ludo-mode-btn.active {
+  background: var(--grad-primary);
+  color: white;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.5);
+  transform: scale(1.02);
+}
+
 .ludo-content {
   display: flex;
   flex-direction: column-reverse;
@@ -28,9 +79,9 @@
   justify-content: center;
   align-items: center;
   gap: 1.5rem;
-  padding: 2rem 1.5rem;
+  padding: 2rem 1.5rem 2.75rem 1.5rem;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .active-player-panel {
@@ -175,12 +226,18 @@
 }
 
 /* ------------------------------ */
-/* 2. Real 3D Dice Component */
-/* ------------------------------ */
+.dice-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1rem;
+  width: 100%;
+}
+
 .dice-scene {
   width: 88px;
   height: 88px;
-  margin-top: 1.2rem;
   perspective: 900px;
   cursor: pointer;
   border: 0;
@@ -241,10 +298,10 @@
   position: absolute;
   width: 88px;
   height: 88px;
-  background: linear-gradient(145deg, #f8fafc, #e2e8f0);
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  box-shadow: inset 0 0 15px rgba(0,0,0,0.1);
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 60%, #e2e8f0 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.08), inset 0 2px 4px rgba(255, 255, 255, 0.8), 0 4px 10px rgba(0, 0, 0, 0.12);
 }
 
 .cube__face--front  { transform: rotateY(  0deg) translateZ(44px); }
@@ -260,8 +317,13 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #1e293b;
-  box-shadow: inset 0 3px 6px rgba(0,0,0,0.5), 0 1px 1px rgba(255,255,255,0.5);
+  background: radial-gradient(circle at 35% 35%, #334155, #0f172a);
+  box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.7), 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+
+.cube__face--front .dot.center {
+  background: radial-gradient(circle at 35% 35%, #ef4444, #991b1b);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), 0 0 8px rgba(239, 68, 68, 0.5);
 }
 
 .center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
@@ -274,10 +336,13 @@
 
 .roll-hint {
   text-align: center;
-  margin-top: 1.5rem;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
+  margin-top: 1.1rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #60a5fa;
+  letter-spacing: 0.03em;
   animation: pulse 2s infinite;
+  white-space: nowrap;
 }
 
 /* ------------------------------ */
@@ -482,42 +547,42 @@
   border-radius: 50%;
   position: relative;
   box-shadow: 
-    0 14px 18px rgba(0,0,0,0.7),
-    inset -3px -5px 10px rgba(0,0,0,0.46),
-    inset 0 3px 6px rgba(255,255,255,0.7),
-    0 0 8px rgba(255,255,255,0.06);
+    0 12px 18px rgba(0,0,0,0.65),
+    inset -3px -5px 8px rgba(0,0,0,0.45),
+    inset 0 3px 6px rgba(255,255,255,0.75),
+    0 0 10px rgba(255,255,255,0.1);
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s;
 }
 
-.token-red .token-jewel { background: radial-gradient(circle at 35% 35%, #f87171, #991b1b); }
-.token-green .token-jewel { background: radial-gradient(circle at 35% 35%, #34d399, #065f46); }
-.token-yellow .token-jewel { background: radial-gradient(circle at 35% 35%, #fbbf24, #92400e); }
-.token-blue .token-jewel { background: radial-gradient(circle at 35% 35%, #60a5fa, #1e3a8a); }
+.token-red .token-jewel { background: radial-gradient(circle at 35% 35%, #fca5a5 0%, #ef4444 45%, #991b1b 100%); }
+.token-green .token-jewel { background: radial-gradient(circle at 35% 35%, #6ee7b7 0%, #10b981 45%, #065f46 100%); }
+.token-yellow .token-jewel { background: radial-gradient(circle at 35% 35%, #fde68a 0%, #f59e0b 45%, #92400e 100%); }
+.token-blue .token-jewel { background: radial-gradient(circle at 35% 35%, #93c5fd 0%, #3b82f6 45%, #1e3a8a 100%); }
 
 /* Sci-fi glint on the glass */
 .token-glint {
   position: absolute;
   top: 15%;
   left: 15%;
-  width: 25%;
-  height: 25%;
+  width: 28%;
+  height: 28%;
   background: white;
   border-radius: 50%;
-  filter: blur(1px);
-  opacity: 0.6;
+  filter: blur(0.5px);
+  opacity: 0.7;
 }
 
 .playable-pulse .token-jewel {
-  animation: tokenHover 1.5s infinite alternate;
+  animation: tokenPlayableBounce 1.2s infinite ease-in-out alternate;
 }
 
 .playable-pulse:hover .token-jewel {
-  transform: scale(1.12) translateY(-4px);
+  transform: scale(1.22) translateY(-6px);
   box-shadow: 
-    0 20px 24px rgba(0,0,0,0.68),
+    0 22px 28px rgba(0,0,0,0.7),
     inset -2px -4px 8px rgba(0,0,0,0.5),
     inset 0 4px 6px rgba(255,255,255,0.9),
-    0 0 18px currentColor;
+    0 0 24px currentColor;
 }
 
 .playable-pulse.token-red { color: var(--color-red); }
@@ -525,9 +590,15 @@
 .playable-pulse.token-yellow { color: var(--color-yellow); }
 .playable-pulse.token-blue { color: var(--color-blue); }
 
-@keyframes tokenHover {
-  0% { transform: scale(1); filter: brightness(1); }
-  100% { transform: scale(1.05); filter: brightness(1.2); }
+@keyframes tokenPlayableBounce {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.5), 0 0 10px currentColor;
+  }
+  100% {
+    transform: translateY(-8px) scale(1.18);
+    box-shadow: 0 18px 24px rgba(0,0,0,0.4), 0 0 24px currentColor;
+  }
 }
 
 /* Expanded invisible touch hit-target for mobile tokens */
