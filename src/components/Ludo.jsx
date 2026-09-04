@@ -454,24 +454,67 @@ const Ludo = ({ onBack }) => {
 
   return (
     <div className="game-wrapper animate-fade-in ludo">
-      <header className="game-header">
-        <button className="btn-outline back-btn" onClick={onBack}>← Back</button>
-        <h2 className="game-title">Masti Ludo</h2>
-        <div className="ludo-mode-selector">
-          <button className={`ludo-mode-btn ${activePlayers.length === 4 && isBot.green ? 'active' : ''}`} onClick={() => setMode('1p')}>
-            <span>🤖</span> 1P vs Bots
+      <header className="game-header ludo-header">
+        <div className="ludo-header-top">
+          <button className="btn-outline back-btn" onClick={onBack} aria-label="Return to games">
+            ← Back
           </button>
-          <button className={`ludo-mode-btn ${activePlayers.length === 2 ? 'active' : ''}`} onClick={() => setMode('2p')}>
-            <span>👥</span> 2 Player
-          </button>
-          <button className={`ludo-mode-btn ${activePlayers.length === 4 && !isBot.green ? 'active' : ''}`} onClick={() => setMode('4p')}>
-            <span>🎮</span> 4 Player
+          <h2 className="game-title">Masti Ludo</h2>
+          <button
+            type="button"
+            className="btn-outline btn-sound-game mobile-sound-btn"
+            onClick={() => setSoundEnabled((prev) => !prev)}
+            aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
+            title={soundEnabled ? 'Mute sound' : 'Enable sound'}
+          >
+            {soundEnabled ? '🔊' : '🔇'}
           </button>
         </div>
+
+        <div className="ludo-mode-selector" role="radiogroup" aria-label="Game mode selection">
+          <button
+            type="button"
+            className={`ludo-mode-btn ${activePlayers.length === 4 && isBot.green ? 'active' : ''}`}
+            onClick={() => setMode('1p')}
+            role="radio"
+            aria-checked={activePlayers.length === 4 && isBot.green}
+          >
+            <span className="mode-emoji">🤖</span>
+            <span className="mode-text-full">1P vs Bots</span>
+            <span className="mode-text-compact">1P Bots</span>
+            <span className="mode-text-tiny">1P</span>
+          </button>
+          <button
+            type="button"
+            className={`ludo-mode-btn ${activePlayers.length === 2 ? 'active' : ''}`}
+            onClick={() => setMode('2p')}
+            role="radio"
+            aria-checked={activePlayers.length === 2}
+          >
+            <span className="mode-emoji">👥</span>
+            <span className="mode-text-full">2 Player</span>
+            <span className="mode-text-compact">2 Player</span>
+            <span className="mode-text-tiny">2P</span>
+          </button>
+          <button
+            type="button"
+            className={`ludo-mode-btn ${activePlayers.length === 4 && !isBot.green ? 'active' : ''}`}
+            onClick={() => setMode('4p')}
+            role="radio"
+            aria-checked={activePlayers.length === 4 && !isBot.green}
+          >
+            <span className="mode-emoji">🎮</span>
+            <span className="mode-text-full">4 Player</span>
+            <span className="mode-text-compact">4 Player</span>
+            <span className="mode-text-tiny">4P</span>
+          </button>
+        </div>
+
         <button
-          className="btn-outline"
+          type="button"
+          className="btn-outline btn-sound-game desktop-sound-btn"
           onClick={() => setSoundEnabled((prev) => !prev)}
-          aria-label="Toggle sound"
+          aria-label={soundEnabled ? 'Mute sound' : 'Enable sound'}
           title={soundEnabled ? 'Mute sound' : 'Enable sound'}
         >
           {soundEnabled ? '🔊 Sound On' : '🔇 Sound Off'}
