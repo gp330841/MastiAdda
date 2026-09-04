@@ -201,6 +201,12 @@
   width: 100%;
 }
 
+.btn-sound-game {
+  padding: 0.4rem 0.65rem;
+  font-size: 1.05rem;
+  border-radius: 1.5rem;
+}
+
 @keyframes popIn {
   0% {
     transform: scale(0.5);
@@ -212,15 +218,37 @@
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 520px) {
+  .tictactoe-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+  }
+
+  .tictactoe-title {
+    font-size: 1.8rem;
+    width: 100%;
+    text-align: center;
+  }
+
+  .ttt-scoreboard {
+    gap: 0.5rem;
+  }
+
+  .ttt-score-badge {
+    padding: 0.5rem 0.8rem;
+    min-width: 75px;
+  }
+
   .ttt-board {
-    grid-template-columns: repeat(3, 85px) !important;
-    grid-template-rows: repeat(3, 85px) !important;
+    grid-template-columns: repeat(3, min(85px, 26vw)) !important;
+    grid-template-rows: repeat(3, min(85px, 26vw)) !important;
     gap: 0.4rem !important;
   }
+
   .ttt-cell {
-    width: 85px;
-    height: 85px;
-    font-size: 2.6rem;
+    width: min(85px, 26vw);
+    height: min(85px, 26vw);
+    font-size: 2.2rem;
   }
 }

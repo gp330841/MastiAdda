@@ -9,6 +9,8 @@ import {
   isCheckmate,
   isStalemate,
   isPawnPromotion,
+  getPieceValue,
+  getLegalMovesForPiece,
 } from './chessLogic.js';
 
 import { getBestMove } from './chessAI.js';
@@ -98,3 +100,48 @@ test('Chess AI: AI finds a valid move for black', () => {
   assert.ok(bestMove.from !== undefined);
   assert.ok(bestMove.to !== undefined);
 });
+
+test('Chess: getPieceValue evaluates pieces correctly', () => {
+  assert.equal(getPieceValue('P'), 10);
+  assert.equal(getPieceValue('p'), 10);
+  assert.equal(getPieceValue('N'), 30);
+  assert.equal(getPieceValue('n'), 30);
+  assert.equal(getPieceValue('B'), 30);
+  assert.equal(getPieceValue('b'), 30);
+  assert.equal(getPieceValue('R'), 50);
+  assert.equal(getPieceValue('r'), 50);
+  assert.equal(getPieceValue('Q'), 90);
+  assert.equal(getPieceValue('q'), 90);
+  assert.equal(getPieceValue('K'), 900);
+  assert.equal(getPieceValue('k'), 900);
+  assert.equal(getPieceValue(null), 0);
+  assert.equal(getPieceValue(''), 0);
+});
+
+test('Chess: movePiece moves piece and returns captured piece', () => {
+  const board = Array(8).fill(null).map(() => Array(8).fill(null));
+  board[4][4] = 'R'; // White Rook
+  board[4][6] = 'p'; // Black pawn
+
+  const { board: nextBoard, captured } = movePiece(board, 4, 4, 4, 6);
+  assert.equal(captured, 'p');
+  assert.equal(nextBoard[4][4], null);
+  assert.equal(nextBoard[4][6], 'R');
+});
+
+test('Chess: pinned piece cannot move off the pin line', () => {
+  const board = Array(8).fill(null).map(() => Array(8).fill(null));
+  board[7][4] = 'K'; // White King at e1
+  board[5][4] = 'R'; // White Rook at e3
+  board[1][4] = 'r'; // Black Rook at e7 (pinning White Rook to King along file e)
+  board[0][0] = 'k'; // Black King safe at a8
+
+  const legalMoves = getLegalMovesForPiece(board, 5, 4);
+  // White Rook can only move along column 4 (towards or attacking the black rook)
+  // It cannot move horizontally (e.g. to (5, 3) or (5, 5)) because that exposes the King
+  assert.ok(legalMoves.length > 0);
+  for (const move of legalMoves) {
+    assert.equal(move.col, 4, `Move col must be 4 to stay on pin ray, was: ${move.col}`);
+  }
+});
+

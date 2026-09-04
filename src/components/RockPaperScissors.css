@@ -222,6 +222,13 @@
   letter-spacing: 0.05em;
 }
 
+.choices-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
 .choices-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -229,6 +236,19 @@
   width: 100%;
   padding: 1rem;
   max-width: 520px;
+}
+
+.choice-key-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  opacity: 0.75;
+}
+
+.rps-keyboard-hint {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: 0.5rem;
 }
 
 .choice-button {

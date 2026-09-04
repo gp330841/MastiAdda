@@ -11,6 +11,7 @@ import {
   promotePawn,
   PIECE_SYMBOLS,
   getPieceColor,
+  getPieceValue,
 } from '../utils/chessLogic';
 import { getBestMove } from '../utils/chessAI';
 import {
@@ -19,7 +20,11 @@ import {
   playCheckSound,
   playWinSound,
   playDrawSound,
+  isMasterSoundEnabled,
+  setMasterSoundEnabled,
+  playClickSound,
 } from '../utils/gameAudio';
+import { getGameScore, saveGameScore } from '../utils/scoreSync';
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
@@ -34,6 +39,7 @@ const Chess = ({ onBack }) => {
   const [capturedPieces, setCapturedPieces] = useState({ white: [], black: [] });
   const [promotionPending, setPromotionPending] = useState(null);
   const [lastMove, setLastMove] = useState(null);
+  const [soundEnabled, setSoundEnabled] = useState(() => isMasterSoundEnabled());
 
   // Compute status and winner directly from board & currentPlayer
   const { gameStatus, winner } = useMemo(() => {
@@ -51,6 +57,47 @@ const Chess = ({ onBack }) => {
     }
     return { gameStatus: 'playing', winner: null };
   }, [board, currentPlayer]);
+
+  // Material balance calculation
+  const materialAdvantage = useMemo(() => {
+    let whiteTotal = 0;
+    let blackTotal = 0;
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const piece = board[r][c];
+        if (!piece || piece.toUpperCase() === 'K') continue;
+        const val = getPieceValue(piece);
+        if (piece === piece.toUpperCase()) {
+          whiteTotal += val;
+        } else {
+          blackTotal += val;
+        }
+      }
+    }
+    const diff = (whiteTotal - blackTotal) / 10;
+    if (diff > 0) return { leader: 'White', score: `+${diff}` };
+    if (diff < 0) return { leader: 'Black', score: `+${Math.abs(diff)}` };
+    return { leader: 'Even', score: 'Equal' };
+  }, [board]);
+
+  // Sync wins to cloud
+  useEffect(() => {
+    if (gameStatus === 'checkmate' && winner === 'white') {
+      const saved = getGameScore('chess');
+      const prevWins = saved.stats?.wins || 0;
+      saveGameScore('chess', {
+        highScore: prevWins + 1,
+        stats: { wins: prevWins + 1 },
+      });
+    }
+  }, [gameStatus, winner]);
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    setMasterSoundEnabled(next);
+    if (next) playClickSound();
+  };
 
   const aiThinking = gameMode === '1p' && currentPlayer === 'black' && gameStatus === 'playing';
 
@@ -229,7 +276,7 @@ const Chess = ({ onBack }) => {
     executeMove(fromRow, fromCol, toRow, toCol, promotionPiece);
   };
 
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     if (moveHistory.length === 0 || aiThinking) return;
 
     if (gameMode === '1p') {
@@ -295,9 +342,24 @@ const Chess = ({ onBack }) => {
           : null
       );
     }
-  };
+  }, [aiThinking, board, currentPlayer, gameMode, moveHistory]);
+
+  // Keyboard shortcut for Undo (u or z)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'u' || e.key === 'U' || e.key === 'z' || e.key === 'Z') {
+        if (!aiThinking && moveHistory.length > 0) {
+          e.preventDefault();
+          handleUndo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [aiThinking, handleUndo, moveHistory.length]);
 
   const handleNewGame = () => {
+    playClickSound();
     setBoard(initBoard());
     setCurrentPlayer('white');
     setSelectedSquare(null);
@@ -309,6 +371,7 @@ const Chess = ({ onBack }) => {
   };
 
   const handleStartGame = (mode) => {
+    playClickSound();
     setGameMode(mode);
     handleNewGame();
   };
@@ -351,6 +414,14 @@ const Chess = ({ onBack }) => {
         <button className="btn-back" onClick={onBack}>← Back</button>
         <h1>Chess</h1>
         <div className="header-actions">
+          <button
+            type="button"
+            className="btn-outline btn-sound-game"
+            onClick={toggleSound}
+            aria-label={soundEnabled ? 'Mute audio' : 'Unmute audio'}
+          >
+            {soundEnabled ? '🔊' : '🔇'}
+          </button>
           <button className="btn-menu" onClick={handleNewGame}>Reset</button>
           <button className="btn-outline" onClick={() => setGameMode(null)}>Mode</button>
         </div>
@@ -369,6 +440,9 @@ const Chess = ({ onBack }) => {
                   {currentPlayer.toUpperCase()} {gameMode === '1p' && currentPlayer === 'black' ? '(Bot)' : ''}
                 </p>
               </div>
+            </div>
+            <div className="material-badge" title="Material balance">
+              Material: <strong>{materialAdvantage.score} {materialAdvantage.leader !== 'Even' ? `(${materialAdvantage.leader})` : ''}</strong>
             </div>
             {gameStatus === 'check' && (
               <div className="status-badge check" role="status">⚠️ Check!</div>
@@ -542,6 +616,7 @@ const Chess = ({ onBack }) => {
                     key={piece}
                     className="promotion-btn"
                     onClick={() => handlePromotion(piece)}
+                    aria-label={`Promote pawn to ${piece === 'Q' ? 'Queen' : piece === 'R' ? 'Rook' : piece === 'B' ? 'Bishop' : 'Knight'}`}
                   >
                     <span className={`piece piece-${currentPlayer}`}>
                       {PIECE_SYMBOLS[currentPlayer === 'white' ? piece : piece.toLowerCase()]}

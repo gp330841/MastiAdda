@@ -17,19 +17,37 @@ import {
   playMergeSound,
   playWinSound,
   playLoseSound,
+  isMasterSoundEnabled,
+  setMasterSoundEnabled,
+  playClickSound,
 } from '../utils/gameAudio.js';
+import { getGameScore, saveGameScore, subscribeToScores } from '../utils/scoreSync.js';
 
 const TwentyFortyEight = ({ onBack }) => {
   const [board, setBoard] = useState(() => initBoard());
   const [score, setScore] = useState(0);
+  const [soundEnabled, setSoundEnabled] = useState(() => isMasterSoundEnabled());
   const [bestScore, setBestScore] = useState(() => {
-    return parseInt(localStorage.getItem('2048_best_score') || '0', 10);
+    const local = parseInt(localStorage.getItem('2048_best_score') || '0', 10);
+    const remote = getGameScore('2048')?.highScore || 0;
+    return Math.max(local, remote);
   });
   const [gameOver, setGameOver] = useState(false);
   const [won, setWon] = useState(false);
   const [hasDismissedWin, setHasDismissedWin] = useState(false);
   const [history, setHistory] = useState([]);
   const [touchStart, setTouchStart] = useState(null);
+
+  // Subscribe to live multi-session score updates across devices
+  useEffect(() => {
+    const unsub = subscribeToScores((allScores) => {
+      const saved = allScores['2048'];
+      if (saved && saved.highScore > 0) {
+        setBestScore((curr) => Math.max(curr, saved.highScore));
+      }
+    });
+    return unsub;
+  }, []);
 
   const handleMove = useCallback((direction) => {
     if (gameOver || won) return;
@@ -73,6 +91,7 @@ const TwentyFortyEight = ({ onBack }) => {
       if (newScore > bestScore) {
         setBestScore(newScore);
         localStorage.setItem('2048_best_score', newScore.toString());
+        saveGameScore('2048', { highScore: newScore });
       }
 
       if (!hasDismissedWin && !won && hasWon(newBoard)) {
@@ -86,6 +105,36 @@ const TwentyFortyEight = ({ onBack }) => {
       }
     }
   }, [board, gameOver, score, bestScore, hasDismissedWin, won]);
+
+  const handleUndo = useCallback(() => {
+    if (history.length > 0) {
+      const previousState = history[history.length - 1];
+      setBoard(previousState.board);
+      setScore(previousState.score);
+      setHistory(history.slice(0, -1));
+      setGameOver(false);
+      setWon(false);
+      playMoveSound();
+    }
+  }, [history]);
+
+  const handleNewGame = useCallback(() => {
+    playClickSound();
+    const newBoard = initBoard();
+    setBoard(newBoard);
+    setScore(0);
+    setGameOver(false);
+    setWon(false);
+    setHasDismissedWin(false);
+    setHistory([]);
+  }, []);
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    setMasterSoundEnabled(next);
+    if (next) playClickSound();
+  };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -116,6 +165,18 @@ const TwentyFortyEight = ({ onBack }) => {
           e.preventDefault();
           handleMove('down');
           break;
+        case 'u':
+        case 'U':
+        case 'z':
+        case 'Z':
+          e.preventDefault();
+          handleUndo();
+          break;
+        case 'n':
+        case 'N':
+          e.preventDefault();
+          handleNewGame();
+          break;
         default:
           return;
       }
@@ -123,7 +184,7 @@ const TwentyFortyEight = ({ onBack }) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleMove, gameOver, won]);
+  }, [handleMove, handleUndo, handleNewGame, gameOver, won]);
 
   const handleTouchStart = (e) => {
     setTouchStart({
@@ -161,28 +222,6 @@ const TwentyFortyEight = ({ onBack }) => {
     setTouchStart(null);
   };
 
-  const handleUndo = () => {
-    if (history.length > 0) {
-      const previousState = history[history.length - 1];
-      setBoard(previousState.board);
-      setScore(previousState.score);
-      setHistory(history.slice(0, -1));
-      setGameOver(false);
-      setWon(false);
-      playMoveSound();
-    }
-  };
-
-  const handleNewGame = () => {
-    const newBoard = initBoard();
-    setBoard(newBoard);
-    setScore(0);
-    setGameOver(false);
-    setWon(false);
-    setHasDismissedWin(false);
-    setHistory([]);
-  };
-
   const handleContinue = () => {
     setWon(false);
     setHasDismissedWin(true);
@@ -200,7 +239,16 @@ const TwentyFortyEight = ({ onBack }) => {
       <div className="game-header-2048">
         <button className="btn-back" onClick={onBack}>← Back</button>
         <h1>2048</h1>
-        <div className="spacer"></div>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="btn-outline btn-sound-game"
+            onClick={toggleSound}
+            aria-label={soundEnabled ? 'Mute audio' : 'Unmute audio'}
+          >
+            {soundEnabled ? '🔊' : '🔇'}
+          </button>
+        </div>
       </div>
 
       <div className="game-info-2048">
@@ -230,6 +278,7 @@ const TwentyFortyEight = ({ onBack }) => {
           <div
             key={idx}
             className={`tile-2048 ${value > 0 ? 'has-value' : ''} ${getTileFontSizeClass(value)}`}
+            aria-label={value > 0 ? `Tile ${value}` : 'Empty tile'}
             style={
               value > 0
                 ? {

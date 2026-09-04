@@ -7,9 +7,20 @@ import RockPaperScissors from './components/RockPaperScissors'
 import TwentyFortyEight from './components/TwentyFortyEight'
 import Chess from './components/Chess'
 import Auth from './components/Auth'
+import { initScoreSync } from './utils/scoreSync.js'
+import { isMasterSoundEnabled, setMasterSoundEnabled, playClickSound } from './utils/gameAudio.js'
+
+const GAME_NAMES = {
+  tictactoe: 'Tic Tac Toe',
+  ludo: 'Omni Ludo',
+  rockpaperscissors: 'Rock Paper Scissors',
+  '2048': '2048',
+  chess: 'Chess',
+};
 
 function App() {
   const [activeGame, setActiveGame] = useState('home');
+  const [soundOn, setSoundOn] = useState(() => isMasterSoundEnabled());
   const [currentUser, setCurrentUser] = useState(() => {
     return typeof window !== 'undefined' ? localStorage.getItem('omni_user') : null;
   });
@@ -17,9 +28,15 @@ function App() {
     if (typeof window === 'undefined') return false;
     const token = localStorage.getItem('omni_token');
     const user = localStorage.getItem('omni_user');
-    // If already have saved user, don't block render with loader
     return Boolean(token && !user);
   });
+
+  // Initialize multi-session score sync
+  useEffect(() => {
+    if (currentUser) {
+      initScoreSync();
+    }
+  }, [currentUser]);
 
   // Check valid session on mount
   useEffect(() => {
@@ -47,7 +64,6 @@ function App() {
       localStorage.setItem('omni_user', data.user.username);
     })
     .catch(() => {
-      // If token expired or server unreachable, clear token
       localStorage.removeItem('omni_token');
     })
     .finally(() => {
@@ -59,13 +75,22 @@ function App() {
   const handleLogin = (username) => {
     setCurrentUser(username);
     localStorage.setItem('omni_user', username);
+    initScoreSync();
   };
 
   const handleLogout = () => {
+    playClickSound();
     localStorage.removeItem('omni_token');
     localStorage.removeItem('omni_user');
     setCurrentUser(null);
     setActiveGame('home');
+  };
+
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    setMasterSoundEnabled(next);
+    if (next) playClickSound();
   };
 
   const renderGame = () => {
@@ -89,30 +114,72 @@ function App() {
       case 'chess':
         return <Chess onBack={() => setActiveGame('home')} />;
       default:
-        return (
-          <>
-            <div className="user-nav">
-              <span className="welcome-text">Logged in as <b>{currentUser}</b></span>
-              <button className="btn-outline btn-sm" onClick={handleLogout}>Logout</button>
-            </div>
-            <Home onSelectGame={setActiveGame} />
-          </>
-        );
+        return <Home onSelectGame={setActiveGame} />;
     }
-  }
+  };
 
   return (
     <div className="app-container">
       {/* Background decoration */}
       <div className="bg-decor top-left"></div>
       <div className="bg-decor bottom-right"></div>
-      
+
+      {/* Top Application Bar */}
+      {currentUser && (
+        <header className="app-header-nav" role="banner">
+          <div className="nav-brand-container">
+            <button
+              type="button"
+              className="nav-brand-btn"
+              onClick={() => { playClickSound(); setActiveGame('home'); }}
+              aria-label="Return to arcade games home"
+            >
+              <span className="brand-logo">🎮</span>
+              <span className="brand-text">OmniGames</span>
+            </button>
+            {activeGame !== 'home' && (
+              <span className="nav-breadcrumb">
+                / <b>{GAME_NAMES[activeGame]}</b>
+              </span>
+            )}
+          </div>
+
+          <div className="nav-controls">
+            <button
+              type="button"
+              className="btn-sound-toggle"
+              onClick={toggleSound}
+              aria-label={soundOn ? 'Mute game sound' : 'Unmute game sound'}
+              title={soundOn ? 'Mute audio' : 'Enable audio'}
+            >
+              {soundOn ? '🔊' : '🔇'}
+            </button>
+
+            <div className="user-profile-badge" title="Logged in session">
+              <span className="user-avatar-circle">{currentUser.charAt(0).toUpperCase()}</span>
+              <span className="user-name-text">{currentUser}</span>
+              <span className="sync-dot" title="Cloud score sync active" aria-label="Cloud sync active"></span>
+            </div>
+
+            <button
+              type="button"
+              className="btn-outline btn-sm nav-logout-btn"
+              onClick={handleLogout}
+              aria-label="Log out of OmniGames"
+            >
+              Logout
+            </button>
+          </div>
+        </header>
+      )}
+
       {/* Main Content Area */}
       <main className="main-content">
         {renderGame()}
       </main>
     </div>
-  )
+  );
 }
 
 export default App
+

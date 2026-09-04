@@ -101,3 +101,7 @@ export const canTokenCaptureOnMove = (playerColor, players, token, roll) => {
 };
 
 export const getPlayerHome = (color) => PLAYERS[color].home;
+
+export const hasPlayerWon = (tokens) => {
+  return Array.isArray(tokens) && tokens.length > 0 && tokens.every((t) => t.status === 'home');
+};

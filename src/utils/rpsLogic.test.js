@@ -20,13 +20,17 @@ test('RPS: correct winner outcomes', () => {
   assert.equal(getRPSWinner('scissors', 'rock'), 'bot');
 });
 
-test('RPS: getBotChoice returns valid move', () => {
+test('RPS: getBotChoice returns valid move for empty or populated history', () => {
+  const emptyChoice = getBotChoice([]);
+  assert.ok(CHOICES.includes(emptyChoice));
+
   const choice = getBotChoice(['rock', 'rock', 'rock']);
   assert.ok(CHOICES.includes(choice));
 });
 
-test('RPS: getChoiceEmoji returns emojis for valid choices', () => {
+test('RPS: getChoiceEmoji returns emojis for valid choices and empty string for unknown', () => {
   assert.equal(getChoiceEmoji('rock'), '✊');
   assert.equal(getChoiceEmoji('paper'), '✋');
   assert.equal(getChoiceEmoji('scissors'), '✌️');
+  assert.equal(getChoiceEmoji('unknown'), '');
 });

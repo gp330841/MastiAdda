@@ -3,6 +3,7 @@ import './Ludo.css';
 import { getTokenPosition } from '../utils/ludoPositions.js';
 import { chooseBestBotMove, getPlayableTokens, isPositionSafe } from '../utils/ludoLogic.js';
 import { playLudoSound, setMasterSoundEnabled, isMasterSoundEnabled } from '../utils/gameAudio.js';
+import { getGameScore, saveGameScore } from '../utils/scoreSync.js';
 
 const COLORS = ['red', 'green', 'yellow', 'blue'];
 const PLAYER_COLOR_MAP = {
@@ -194,6 +195,15 @@ const Ludo = ({ onBack }) => {
       setDiceRoll(1);
       setMessage(`${formatPlayerName(color)} wins the game!`);
       playLudoSound('win');
+
+      if (color === 'red' || !isBot[color]) {
+        const saved = getGameScore('ludo');
+        const prevWins = saved.stats?.wins || 0;
+        saveGameScore('ludo', {
+          highScore: prevWins + 1,
+          stats: { wins: prevWins + 1 },
+        });
+      }
       return;
     }
 
@@ -215,7 +225,7 @@ const Ludo = ({ onBack }) => {
 
     playLudoSound('move');
     window.setTimeout(() => nextTurn(), 500);
-  }, [checkCapture, diceRoll, formatPlayerName, hasRolled, isRolling, nextTurn, players, turn, winner]);
+  }, [checkCapture, diceRoll, formatPlayerName, hasRolled, isBot, isRolling, nextTurn, players, turn, winner]);
 
   useEffect(() => {
     if (!isBot[turn] || isRolling) return undefined;
@@ -244,6 +254,19 @@ const Ludo = ({ onBack }) => {
   useEffect(() => {
     setMasterSoundEnabled(soundEnabled);
   }, [soundEnabled]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        if (!isBot[turn] && !hasRolled && !isRolling && !winner) {
+          e.preventDefault();
+          handleRoll();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleRoll, hasRolled, isBot, isRolling, turn, winner]);
 
   const setMode = (mode) => {
     if (mode === '1p') {
@@ -482,6 +505,37 @@ const Ludo = ({ onBack }) => {
           </div>
         </div>
       </div>
+
+      {winner && (
+        <div className="ludo-modal-overlay animate-fade-in" role="dialog" aria-modal="true">
+          <div className="ludo-modal">
+            <div className="victory-crown">👑</div>
+            <h2>Victory!</h2>
+            <p className="winner-declaration">
+              <strong style={{ color: PLAYER_COLOR_MAP[winner] }}>
+                {formatPlayerName(winner, true)}
+              </strong>{' '}
+              wins the match!
+            </p>
+            <div className="ludo-modal-buttons">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setMode('1p')}
+              >
+                Play Again
+              </button>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={onBack}
+              >
+                Arcade Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

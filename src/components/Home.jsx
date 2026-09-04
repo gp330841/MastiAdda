@@ -1,7 +1,52 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import './Home.css';
+import { subscribeToScores } from '../utils/scoreSync.js';
+import { playClickSound } from '../utils/gameAudio.js';
 
 const Home = ({ onSelectGame }) => {
+  const [scores, setScores] = useState({});
+
+  useEffect(() => {
+    const unsubscribe = subscribeToScores((updatedScores) => {
+      setScores(updatedScores || {});
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleCardClick = (game) => {
+    playClickSound();
+    onSelectGame(game);
+  };
+
+  const get2048Stats = () => {
+    const best = scores['2048']?.highScore || 0;
+    return best > 0 ? `Best: ${best}` : null;
+  };
+
+  const getTicTacToeStats = () => {
+    const stats = scores['tictactoe']?.stats;
+    if (!stats || (!stats.wins && !stats.losses)) return null;
+    return `${stats.wins || 0}W - ${stats.losses || 0}L`;
+  };
+
+  const getRPSStats = () => {
+    const stats = scores['rockpaperscissors']?.stats;
+    if (!stats || (!stats.player1 && !stats.player2)) return null;
+    return `${stats.player1 || 0}W - ${stats.player2 || 0}L`;
+  };
+
+  const getChessStats = () => {
+    const stats = scores['chess']?.stats;
+    if (!stats || !stats.wins) return null;
+    return `${stats.wins} Won`;
+  };
+
+  const getLudoStats = () => {
+    const stats = scores['ludo']?.stats;
+    if (!stats || !stats.wins) return null;
+    return `${stats.wins} Won`;
+  };
+
   return (
     <div className="home-container animate-fade-in">
       <header className="home-header">
@@ -13,10 +58,15 @@ const Home = ({ onSelectGame }) => {
         <button
           type="button"
           className="game-card game-card-wrapper" 
-          onClick={() => onSelectGame('tictactoe')}
+          onClick={() => handleCardClick('tictactoe')}
           aria-label="Play Tic Tac Toe"
         >
           <div className="card-glass">
+            {getTicTacToeStats() && (
+              <span className="card-stat-pill" title="Your synced cloud record">
+                🏆 {getTicTacToeStats()}
+              </span>
+            )}
             <div className="game-icon tictactoe-icon">
               <span>X</span>
               <span>O</span>
@@ -30,10 +80,15 @@ const Home = ({ onSelectGame }) => {
         <button
           type="button"
           className="game-card game-card-wrapper" 
-          onClick={() => onSelectGame('ludo')}
+          onClick={() => handleCardClick('ludo')}
           aria-label="Play Ludo"
         >
           <div className="card-glass">
+            {getLudoStats() && (
+              <span className="card-stat-pill" title="Your synced cloud record">
+                🏆 {getLudoStats()}
+              </span>
+            )}
             <div className="game-icon ludo-icon">
               <div className="ludo-dots">
                 <div className="dot red"></div>
@@ -51,10 +106,15 @@ const Home = ({ onSelectGame }) => {
         <button
           type="button"
           className="game-card game-card-wrapper" 
-          onClick={() => onSelectGame('rockpaperscissors')}
+          onClick={() => handleCardClick('rockpaperscissors')}
           aria-label="Play Rock Paper Scissors"
         >
           <div className="card-glass">
+            {getRPSStats() && (
+              <span className="card-stat-pill" title="Your synced cloud record">
+                🏆 {getRPSStats()}
+              </span>
+            )}
             <div className="game-icon rps-icon">
               <span>✊</span>
               <span>✋</span>
@@ -69,10 +129,15 @@ const Home = ({ onSelectGame }) => {
         <button
           type="button"
           className="game-card game-card-wrapper" 
-          onClick={() => onSelectGame('2048')}
+          onClick={() => handleCardClick('2048')}
           aria-label="Play 2048"
         >
           <div className="card-glass">
+            {get2048Stats() && (
+              <span className="card-stat-pill" title="Your synced cloud high score">
+                🏆 {get2048Stats()}
+              </span>
+            )}
             <div className="game-icon game2048-icon">
               <span>2</span>
               <span>0</span>
@@ -88,10 +153,15 @@ const Home = ({ onSelectGame }) => {
         <button
           type="button"
           className="game-card game-card-wrapper" 
-          onClick={() => onSelectGame('chess')}
+          onClick={() => handleCardClick('chess')}
           aria-label="Play Chess"
         >
           <div className="card-glass">
+            {getChessStats() && (
+              <span className="card-stat-pill" title="Your synced cloud record">
+                🏆 {getChessStats()}
+              </span>
+            )}
             <div className="game-icon chess-icon">
               <span>♔</span>
               <span>♛</span>

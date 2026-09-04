@@ -26,6 +26,24 @@ const db = new sqlite3.Database(dbPath, (err) => {
         console.log('[+] Users table ready.');
       }
     });
+
+    // Create game_scores table if it doesn't exist
+    db.run(`
+      CREATE TABLE IF NOT EXISTS game_scores (
+        user_id INTEGER NOT NULL,
+        game_id TEXT NOT NULL,
+        high_score INTEGER NOT NULL DEFAULT 0,
+        stats_json TEXT NOT NULL DEFAULT '{}',
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, game_id)
+      )
+    `, (err) => {
+      if (err) {
+        console.error('Error creating game_scores table:', err.message);
+      } else {
+        console.log('[+] Game scores table ready.');
+      }
+    });
   }
 });
 
@@ -48,8 +66,18 @@ const getQuery = (sql, params = []) => {
   });
 };
 
+const allQuery = (sql, params = []) => {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) return reject(err);
+      resolve(rows || []);
+    });
+  });
+};
+
 module.exports = {
   db,
   runQuery,
-  getQuery
+  getQuery,
+  allQuery
 };

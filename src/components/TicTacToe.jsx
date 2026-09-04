@@ -1,33 +1,77 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './TicTacToe.css';
-import { playMoveSound, playWinSound, playDrawSound } from '../utils/gameAudio.js';
-
-const WINNING_COMBOS = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8], // rows
-  [0, 3, 6], [1, 4, 7], [2, 5, 8], // cols
-  [0, 4, 8], [2, 4, 6]             // diagonals
-];
+import {
+  checkWinner,
+  isBoardFull,
+  getBestBotMove,
+} from '../utils/tictactoeLogic.js';
+import {
+  playMoveSound,
+  playWinSound,
+  playDrawSound,
+  isMasterSoundEnabled,
+  setMasterSoundEnabled,
+  playClickSound,
+} from '../utils/gameAudio.js';
+import { getGameScore, saveGameScore, subscribeToScores } from '../utils/scoreSync.js';
 
 const TicTacToe = ({ onBack }) => {
   const [board, setBoard] = useState(Array(9).fill(null));
   const [isXNext, setIsXNext] = useState(true);
   const [gameMode, setGameMode] = useState('1p');
-  const [scores, setScores] = useState({ X: 0, O: 0, ties: 0 });
+  const [soundEnabled, setSoundEnabled] = useState(() => isMasterSoundEnabled());
+  const [scores, setScores] = useState(() => {
+    const saved = getGameScore('tictactoe');
+    return {
+      X: saved.stats?.wins || 0,
+      O: saved.stats?.losses || 0,
+      ties: saved.stats?.ties || 0,
+    };
+  });
 
-  const checkWinner = useCallback((squares) => {
-    for (let i = 0; i < WINNING_COMBOS.length; i++) {
-      const [a, b, c] = WINNING_COMBOS[i];
-      if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
-        return { player: squares[a], line: [a, b, c] };
+  const cellRefs = useRef([]);
+
+  // Subscribe to multi-session synced scores
+  useEffect(() => {
+    const unsub = subscribeToScores((allScores) => {
+      const ttt = allScores['tictactoe'];
+      if (ttt && ttt.stats) {
+        setScores({
+          X: ttt.stats.wins || 0,
+          O: ttt.stats.losses || 0,
+          ties: ttt.stats.ties || 0,
+        });
       }
-    }
-    return null;
+    });
+    return unsub;
   }, []);
 
-  const winner = useMemo(() => checkWinner(board), [board, checkWinner]);
-  const isDraw = !winner && board.every(Boolean);
+  const winner = useMemo(() => checkWinner(board), [board]);
+  const isDraw = !winner && isBoardFull(board);
 
-  const handlePlay = (index) => {
+  const handleScoreUpdate = useCallback((newWinner, isTie) => {
+    setScores((prev) => {
+      const nextScores = {
+        X: newWinner?.player === 'X' ? prev.X + 1 : prev.X,
+        O: newWinner?.player === 'O' ? prev.O + 1 : prev.O,
+        ties: isTie ? prev.ties + 1 : prev.ties,
+      };
+
+      // Persist & sync to Cloudflare D1 across sessions
+      saveGameScore('tictactoe', {
+        highScore: nextScores.X,
+        stats: {
+          wins: nextScores.X,
+          losses: nextScores.O,
+          ties: nextScores.ties,
+        },
+      });
+
+      return nextScores;
+    });
+  }, []);
+
+  const handlePlay = useCallback((index) => {
     if (board[index] || winner || (gameMode === '1p' && !isXNext)) return;
 
     const newBoard = [...board];
@@ -36,77 +80,102 @@ const TicTacToe = ({ onBack }) => {
     playMoveSound();
 
     const nextWinner = checkWinner(newBoard);
+    const nextIsDraw = !nextWinner && isBoardFull(newBoard);
+
     if (nextWinner) {
-      setScores((s) => ({ ...s, [nextWinner.player]: s[nextWinner.player] + 1 }));
+      handleScoreUpdate(nextWinner, false);
       playWinSound();
-    } else if (newBoard.every(Boolean)) {
-      setScores((s) => ({ ...s, ties: s.ties + 1 }));
+    } else if (nextIsDraw) {
+      handleScoreUpdate(null, true);
       playDrawSound();
     }
 
     setBoard(newBoard);
     setIsXNext(!isXNext);
-  };
+  }, [board, gameMode, handleScoreUpdate, isXNext, winner]);
 
+  // Bot move logic in 1P mode
   useEffect(() => {
     if (gameMode !== '1p' || isXNext || winner || isDraw) {
       return undefined;
     }
 
     const timer = setTimeout(() => {
-      const available = board.map((val, idx) => (val === null ? idx : null)).filter((val) => val !== null);
-      if (available.length === 0 || winner) return;
-
-      const findWinningMove = (player) => {
-        for (let idx of available) {
-          const tempBoard = [...board];
-          tempBoard[idx] = player;
-          if (checkWinner(tempBoard)) return idx;
-        }
-        return null;
-      };
-
-      let move = findWinningMove('O');
-      if (move === null) move = findWinningMove('X');
-      if (move === null && available.includes(4)) move = 4;
-      if (move === null) {
-        const corners = [0, 2, 6, 8].filter((c) => available.includes(c));
-        if (corners.length > 0 && Math.random() < 0.7) {
-          move = corners[Math.floor(Math.random() * corners.length)];
-        } else {
-          const randomIdx = Math.floor(Math.random() * available.length);
-          move = available[randomIdx];
-        }
-      }
+      const move = getBestBotMove(board);
+      if (move === null || winner) return;
 
       const newBoard = [...board];
       newBoard[move] = 'O';
       playMoveSound();
 
       const nextWinner = checkWinner(newBoard);
+      const nextIsDraw = !nextWinner && isBoardFull(newBoard);
+
       if (nextWinner) {
-        setScores((s) => ({ ...s, [nextWinner.player]: s[nextWinner.player] + 1 }));
+        handleScoreUpdate(nextWinner, false);
         playWinSound();
-      } else if (newBoard.every(Boolean)) {
-        setScores((s) => ({ ...s, ties: s.ties + 1 }));
+      } else if (nextIsDraw) {
+        handleScoreUpdate(null, true);
         playDrawSound();
       }
 
       setBoard(newBoard);
       setIsXNext(true);
-    }, 500);
+    }, 450);
 
     return () => clearTimeout(timer);
-  }, [board, checkWinner, gameMode, isDraw, isXNext, winner]);
+  }, [board, gameMode, handleScoreUpdate, isDraw, isXNext, winner]);
 
   const resetGame = () => {
+    playClickSound();
     setBoard(Array(9).fill(null));
     setIsXNext(true);
   };
 
   const resetScores = () => {
+    playClickSound();
     resetGame();
     setScores({ X: 0, O: 0, ties: 0 });
+    saveGameScore('tictactoe', {
+      highScore: 0,
+      stats: { wins: 0, losses: 0, ties: 0 },
+    });
+  };
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    setMasterSoundEnabled(next);
+    if (next) playClickSound();
+  };
+
+  // Keyboard navigation across the 3x3 grid
+  const handleKeyDown = (e, index) => {
+    let targetIndex = null;
+    switch (e.key) {
+      case 'ArrowUp':
+        e.preventDefault();
+        targetIndex = index >= 3 ? index - 3 : index;
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        targetIndex = index <= 5 ? index + 3 : index;
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        targetIndex = index % 3 !== 0 ? index - 1 : index;
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        targetIndex = index % 3 !== 2 ? index + 1 : index;
+        break;
+      default:
+        return;
+    }
+
+    if (targetIndex !== null && cellRefs.current[targetIndex]) {
+      cellRefs.current[targetIndex].focus();
+    }
   };
 
   const renderCell = (i) => {
@@ -114,8 +183,10 @@ const TicTacToe = ({ onBack }) => {
     return (
       <button 
         key={i}
+        ref={(el) => { cellRefs.current[i] = el; }}
         className={`ttt-cell ${board[i] ? 'filled' : ''} ${board[i] === 'X' ? 'cell-x' : 'cell-o'} ${isWinningCell ? 'winning-cell' : ''}`}
         onClick={() => handlePlay(i)}
+        onKeyDown={(e) => handleKeyDown(e, i)}
         disabled={!!winner || !!board[i] || (gameMode === '1p' && !isXNext)}
         aria-label={`Square ${i + 1}: ${board[i] || 'Empty'}`}
       >
@@ -131,18 +202,28 @@ const TicTacToe = ({ onBack }) => {
           ← Back
         </button>
         <h2 className="tictactoe-title">Tic Tac Toe</h2>
-        <div className="ttt-mode-selector">
-          <button 
-            className={`ttt-mode-btn ${gameMode === '1p' ? 'active' : ''}`} 
-            onClick={() => { setGameMode('1p'); resetGame(); }}
+        <div className="header-actions">
+          <div className="ttt-mode-selector">
+            <button 
+              className={`ttt-mode-btn ${gameMode === '1p' ? 'active' : ''}`} 
+              onClick={() => { playClickSound(); setGameMode('1p'); resetGame(); }}
+            >
+              1P vs Bot
+            </button>
+            <button 
+              className={`ttt-mode-btn ${gameMode === '2p' ? 'active' : ''}`} 
+              onClick={() => { playClickSound(); setGameMode('2p'); resetGame(); }}
+            >
+              2 Player
+            </button>
+          </div>
+          <button
+            type="button"
+            className="btn-outline btn-sound-game"
+            onClick={toggleSound}
+            aria-label={soundEnabled ? 'Mute audio' : 'Unmute audio'}
           >
-            1 Player
-          </button>
-          <button 
-            className={`ttt-mode-btn ${gameMode === '2p' ? 'active' : ''}`} 
-            onClick={() => { setGameMode('2p'); resetGame(); }}
-          >
-            2 Player
+            {soundEnabled ? '🔊' : '🔇'}
           </button>
         </div>
       </header>
@@ -173,7 +254,7 @@ const TicTacToe = ({ onBack }) => {
         </div>
 
         <div className="ttt-board-wrapper">
-          <div className="ttt-board">
+          <div className="ttt-board" role="grid" aria-label="Tic Tac Toe 3x3 board">
             {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => renderCell(i))}
           </div>
         </div>
@@ -192,3 +273,4 @@ const TicTacToe = ({ onBack }) => {
 };
 
 export default TicTacToe;
+
