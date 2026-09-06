@@ -106,29 +106,6 @@ const Home = ({ onSelectGame }) => {
         <button
           type="button"
           className="game-card game-card-wrapper" 
-          onClick={() => handleCardClick('rockpaperscissors')}
-          aria-label="Play Rock Paper Scissors"
-        >
-          <div className="card-glass">
-            {getRPSStats() && (
-              <span className="card-stat-pill" title="Your synced cloud record">
-                🏆 {getRPSStats()}
-              </span>
-            )}
-            <div className="game-icon rps-icon">
-              <span>✊</span>
-              <span>✋</span>
-              <span>✌️</span>
-            </div>
-            <h2>Rock Paper Scissors</h2>
-            <p>Challenge the computer or play with a friend. The classic hand game never gets old.</p>
-            <span className="btn-play">Play Now</span>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          className="game-card game-card-wrapper" 
           onClick={() => handleCardClick('2048')}
           aria-label="Play 2048"
         >
@@ -170,6 +147,26 @@ const Home = ({ onSelectGame }) => {
             <p>The ultimate strategy game. Play against the AI or challenge a friend to a match.</p>
             <span className="btn-play">Play Now</span>
           </div>
+        </button>
+      </div>
+
+      {/* Hidden Option for Rock Paper Scissors */}
+      <div className="hidden-game-container">
+        <button
+          type="button"
+          className="btn-hidden-game"
+          onClick={() => handleCardClick('rockpaperscissors')}
+          aria-label="Play hidden Rock Paper Scissors game"
+          title="Secret Arcade: Rock Paper Scissors"
+        >
+          <span className="secret-lock-icon">🔒</span>
+          <span className="secret-title">Secret Game: <b>Rock Paper Scissors</b></span>
+          <span className="secret-emojis">✊ ✋ ✌️</span>
+          {getRPSStats() && (
+            <span className="secret-stat-pill" title="Your cloud score">
+              🏆 {getRPSStats()}
+            </span>
+          )}
         </button>
       </div>
     </div>

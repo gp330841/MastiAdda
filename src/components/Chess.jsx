@@ -14,6 +14,7 @@ import {
   getPieceValue,
 } from '../utils/chessLogic';
 import { getBestMove } from '../utils/chessAI';
+import ChessPieceSvg from './ChessPieceSvg';
 import {
   playMoveSound,
   playCaptureSound,
@@ -64,6 +65,46 @@ const Chess = ({ onBack }) => {
   const [promotionPending, setPromotionPending] = useState(null);
   const [lastMove, setLastMove] = useState(() => savedState?.lastMove || null);
   const [soundEnabled, setSoundEnabled] = useState(() => isMasterSoundEnabled());
+  const [boardTheme, setBoardTheme] = useState(() => {
+    if (typeof window === 'undefined') return 'emerald';
+    return localStorage.getItem('omni_chess_theme') || 'emerald';
+  });
+
+  const handleThemeChange = useCallback((theme) => {
+    setBoardTheme(theme);
+    try {
+      localStorage.setItem('omni_chess_theme', theme);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const formatMoveNotation = useCallback((move) => {
+    if (!move) return '';
+    const pieceChar = move.piece ? move.piece.toUpperCase() : '';
+    const piecePrefix = pieceChar === 'P' ? '' : pieceChar;
+    const fromCol = FILES[move.from.col];
+    const toCol = FILES[move.to.col];
+    const toRow = RANKS[move.to.row];
+    const capture = move.captured ? (pieceChar === 'P' ? `${fromCol}x` : 'x') : '';
+    const promo = move.promotedTo ? `=${move.promotedTo.toUpperCase()}` : '';
+    return `${piecePrefix}${capture}${toCol}${toRow}${promo}`;
+  }, []);
+
+  const formattedMoves = useMemo(() => {
+    const list = [];
+    for (let i = 0; i < moveHistory.length; i += 2) {
+      const turnNum = Math.floor(i / 2) + 1;
+      const whiteMove = moveHistory[i];
+      const blackMove = moveHistory[i + 1];
+      list.push({
+        turnNum,
+        white: formatMoveNotation(whiteMove),
+        black: blackMove ? formatMoveNotation(blackMove) : null,
+      });
+    }
+    return list;
+  }, [moveHistory, formatMoveNotation]);
 
   // Compute status, winner, and checked king position directly from board & currentPlayer
   const { gameStatus, winner, checkedKingSquare } = useMemo(() => {
@@ -512,10 +553,10 @@ const Chess = ({ onBack }) => {
   }
 
   return (
-    <div className="chess-container animate-fade-in">
-      <div className="chess-header">
+    <div className={`chess-container animate-fade-in theme-${boardTheme}`}>
+      <header className="chess-header">
         <button className="btn-back" onClick={onBack}>← Back</button>
-        <h1>Chess</h1>
+        <h1 className="chess-title">Chess</h1>
         <div className="header-actions">
           <button
             type="button"
@@ -528,213 +569,311 @@ const Chess = ({ onBack }) => {
           <button className="btn-menu" onClick={handleNewGame}>Reset</button>
           <button className="btn-outline" onClick={() => setGameMode(null)}>Mode</button>
         </div>
-      </div>
+      </header>
 
-      <div className="chess-content">
-        <div className="info-panel">
-          <div className="player-info">
-            <div className="current-player">
-              <span className={`player-indicator ${currentPlayer}`}>
-                ●
-              </span>
-              <div>
-                <p className="player-label">Current Turn</p>
-                <p className="player-name">
-                  {currentPlayer.toUpperCase()} {gameMode === '1p' && currentPlayer === 'black' ? '(Bot)' : ''}
-                </p>
-              </div>
-            </div>
-            <div className="material-badge" title="Material balance">
-              Material: <strong>{materialAdvantage.score} {materialAdvantage.leader !== 'Even' ? `(${materialAdvantage.leader})` : ''}</strong>
-            </div>
-            {gameStatus === 'check' && (
-              <div className="status-badge check" role="status">⚠️ Check!</div>
-            )}
-            {gameStatus === 'checkmate' && (
-              <div className="status-badge checkmate" role="status">♚ Checkmate! {winner?.toUpperCase()} Wins!</div>
-            )}
-            {gameStatus === 'stalemate' && (
-              <div className="status-badge stalemate" role="status">🤝 Stalemate (Draw)</div>
-            )}
-          </div>
-
-          <div className="captured-pieces">
-            <div className="captured-column">
-              <p className="captured-label">Captured by White</p>
-              <div className="captured-list">
-                {capturedPieces.white.map((piece, idx) => (
-                  <span key={idx} className="captured-piece piece-black">
-                    {PIECE_SYMBOLS[piece]}
+      <div className="chess-main-layout">
+        {/* Left / Center: Grandmaster Board with Player Bars */}
+        <div className="chess-board-column">
+          {/* Top Player Strip (Black / Opponent) */}
+          <div className={`player-strip opponent-strip ${currentPlayer === 'black' ? 'active-turn' : ''}`}>
+            <div className="player-strip-left">
+              <span className="player-avatar-badge">{gameMode === '1p' ? '🤖' : '👤'}</span>
+              <div className="player-meta-box">
+                <div className="player-title-row">
+                  <span className="player-display-name">
+                    {gameMode === '1p' ? 'Computer Bot' : 'Black Player'}
                   </span>
-                ))}
-              </div>
-            </div>
-            <div className="captured-column">
-              <p className="captured-label">Captured by Black</p>
-              <div className="captured-list">
-                {capturedPieces.black.map((piece, idx) => (
-                  <span key={idx} className="captured-piece piece-white">
-                    {PIECE_SYMBOLS[piece]}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="board-container">
-          <div className="board-wrapper-with-coords">
-            {/* Top Files */}
-            <div className="board-files top">
-              {FILES.map((f) => (
-                <span key={f}>{f}</span>
-              ))}
-            </div>
-
-            <div className="board-middle-row">
-              {/* Left Ranks */}
-              <div className="board-ranks">
-                {RANKS.map((r) => (
-                  <span key={r}>{r}</span>
-                ))}
-              </div>
-
-              {/* 8x8 Board Grid */}
-              <div className="chess-board">
-                {board.map((row, rowIdx) =>
-                  row.map((piece, colIdx) => {
-                    const isSelected =
-                      selectedSquare && selectedSquare.row === rowIdx && selectedSquare.col === colIdx;
-                    const isValidMove = validMoves.some((m) => m.row === rowIdx && m.col === colIdx);
-                    const isLight = (rowIdx + colIdx) % 2 === 0;
-                    const isLastMoveSquare =
-                      lastMove &&
-                      ((lastMove.from.row === rowIdx && lastMove.from.col === colIdx) ||
-                        (lastMove.to.row === rowIdx && lastMove.to.col === colIdx));
-                    const isCheckedKing =
-                      checkedKingSquare &&
-                      checkedKingSquare.row === rowIdx &&
-                      checkedKingSquare.col === colIdx;
-
-                    const pieceColor = piece ? getPieceColor(piece) : null;
-
-                    return (
-                      <button
-                        type="button"
-                        key={`${rowIdx}-${colIdx}`}
-                        className={`chess-square ${isLight ? 'light' : 'dark'} ${
-                          isSelected ? 'selected' : ''
-                        } ${isValidMove ? 'valid-move' : ''} ${
-                          isLastMoveSquare ? 'last-move' : ''
-                        } ${isCheckedKing ? 'in-check' : ''}`}
-                        onClick={() => handleSquareClick(rowIdx, colIdx)}
-                        aria-label={`${FILES[colIdx]}${RANKS[rowIdx]}${piece ? `, ${pieceColor} ${piece}` : ', empty'}${isSelected ? ', selected' : ''}${isValidMove ? ', valid move' : ''}${isCheckedKing ? ', in check' : ''}`}
-                      >
-                        {piece && (
-                          <span className={`chess-piece piece-${pieceColor}`}>
-                            {PIECE_SYMBOLS[piece]}
-                          </span>
-                        )}
-                        {isValidMove && <span className="chess-move-indicator"></span>}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Right Ranks */}
-              <div className="board-ranks">
-                {RANKS.map((r) => (
-                  <span key={r}>{r}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Bottom Files */}
-            <div className="board-files bottom">
-              {FILES.map((f) => (
-                <span key={f}>{f}</span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="controls">
-          <button
-            className="btn-undo"
-            onClick={handleUndo}
-            disabled={moveHistory.length === 0 || aiThinking}
-          >
-            ↶ Undo Move
-          </button>
-          <button className="btn-new-game" onClick={handleNewGame}>
-            New Game
-          </button>
-        </div>
-
-        {aiThinking && gameMode === '1p' && (
-          <div className="thinking">
-            🤖 Computer is calculating best move...
-          </div>
-        )}
-
-        {gameStatus === 'checkmate' && (
-          <div className="modal-overlay">
-            <div className="modal">
-              <h2>🎉 Checkmate!</h2>
-              <p><strong>{winner?.toUpperCase()}</strong> is victorious!</p>
-              <div className="modal-buttons">
-                <button className="btn-primary" onClick={handleNewGame}>
-                  Play Again
-                </button>
-                <button className="btn-secondary" onClick={() => setGameMode(null)}>
-                  Mode Menu
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {gameStatus === 'stalemate' && (
-          <div className="modal-overlay">
-            <div className="modal">
-              <h2>🤝 Stalemate!</h2>
-              <p>Game is a draw.</p>
-              <div className="modal-buttons">
-                <button className="btn-primary" onClick={handleNewGame}>
-                  Play Again
-                </button>
-                <button className="btn-secondary" onClick={() => setGameMode(null)}>
-                  Mode Menu
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {promotionPending && (
-          <div className="modal-overlay">
-            <div className="modal">
-              <h2>Pawn Promotion</h2>
-              <p>Choose a piece:</p>
-              <div className="promotion-choices">
-                {['Q', 'R', 'B', 'N'].map((piece) => (
-                  <button
-                    key={piece}
-                    className="promotion-btn"
-                    onClick={() => handlePromotion(piece)}
-                    aria-label={`Promote pawn to ${piece === 'Q' ? 'Queen' : piece === 'R' ? 'Rook' : piece === 'B' ? 'Bishop' : 'Knight'}`}
-                  >
-                    <span className={`piece piece-${currentPlayer}`}>
-                      {PIECE_SYMBOLS[currentPlayer === 'white' ? piece : piece.toLowerCase()]}
+                  {gameMode === '1p' && <span className="bot-difficulty-pill">AI</span>}
+                </div>
+                <div className="captured-strip" aria-label="Pieces captured by opponent">
+                  {capturedPieces.white.map((p, idx) => (
+                    <span key={idx} className="mini-piece-box" title={`Captured White ${p}`}>
+                      <ChessPieceSvg piece={p} />
                     </span>
-                  </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="player-strip-right">
+              {materialAdvantage.leader === 'Black' && (
+                <span className="material-pill">{materialAdvantage.score}</span>
+              )}
+              {currentPlayer === 'black' && (
+                <span className="turn-indicator-pill bot-turn">
+                  {aiThinking ? (
+                    <>
+                      <span className="thinking-dot" />
+                      <span>Thinking...</span>
+                    </>
+                  ) : (
+                    'Turn'
+                  )}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* The Big Grandmaster Board Stage */}
+          <div className="board-stage">
+            <div className="board-frame-with-coords">
+              {/* Top files: a-h */}
+              <div className="board-coords-files top">
+                {FILES.map((f) => (
+                  <span key={f}>{f}</span>
+                ))}
+              </div>
+
+              <div className="board-center-row">
+                {/* Left ranks: 8-1 */}
+                <div className="board-coords-ranks left">
+                  {RANKS.map((r) => (
+                    <span key={r}>{r}</span>
+                  ))}
+                </div>
+
+                {/* 8x8 Board Grid */}
+                <div className="chess-board">
+                  {board.map((row, rowIdx) =>
+                    row.map((piece, colIdx) => {
+                      const isSelected =
+                        selectedSquare && selectedSquare.row === rowIdx && selectedSquare.col === colIdx;
+                      const isValidMove = validMoves.some((m) => m.row === rowIdx && m.col === colIdx);
+                      const isLight = (rowIdx + colIdx) % 2 === 0;
+                      const isLastMoveSquare =
+                        lastMove &&
+                        ((lastMove.from.row === rowIdx && lastMove.from.col === colIdx) ||
+                          (lastMove.to.row === rowIdx && lastMove.to.col === colIdx));
+                      const isCheckedKing =
+                        checkedKingSquare &&
+                        checkedKingSquare.row === rowIdx &&
+                        checkedKingSquare.col === colIdx;
+
+                      const pieceColor = piece ? getPieceColor(piece) : null;
+                      const isCaptureTarget = isValidMove && piece;
+
+                      return (
+                        <button
+                          type="button"
+                          key={`${rowIdx}-${colIdx}`}
+                          className={`chess-square ${isLight ? 'light' : 'dark'} ${
+                            isSelected ? 'selected' : ''
+                          } ${isValidMove ? 'valid-move' : ''} ${
+                            isLastMoveSquare ? 'last-move' : ''
+                          } ${isCheckedKing ? 'in-check' : ''}`}
+                          onClick={() => handleSquareClick(rowIdx, colIdx)}
+                          aria-label={`${FILES[colIdx]}${RANKS[rowIdx]}${piece ? `, ${pieceColor} ${piece}` : ', empty'}${isSelected ? ', selected' : ''}${isValidMove ? ', valid move' : ''}${isCheckedKing ? ', in check' : ''}`}
+                        >
+                          {piece && (
+                            <span className={`chess-piece piece-${pieceColor}`}>
+                              <ChessPieceSvg piece={piece} />
+                            </span>
+                          )}
+                          {isValidMove && !isCaptureTarget && <span className="chess-move-dot" />}
+                          {isCaptureTarget && <span className="chess-capture-ring" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Right ranks: 8-1 */}
+                <div className="board-coords-ranks right">
+                  {RANKS.map((r) => (
+                    <span key={r}>{r}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bottom files: a-h */}
+              <div className="board-coords-files bottom">
+                {FILES.map((f) => (
+                  <span key={f}>{f}</span>
                 ))}
               </div>
             </div>
           </div>
-        )}
+
+          {/* Bottom Player Strip (White / You) */}
+          <div className={`player-strip user-strip ${currentPlayer === 'white' ? 'active-turn' : ''}`}>
+            <div className="player-strip-left">
+              <span className="player-avatar-badge">👤</span>
+              <div className="player-meta-box">
+                <div className="player-title-row">
+                  <span className="player-display-name">You (White)</span>
+                </div>
+                <div className="captured-strip" aria-label="Pieces captured by you">
+                  {capturedPieces.black.map((p, idx) => (
+                    <span key={idx} className="mini-piece-box" title={`Captured Black ${p}`}>
+                      <ChessPieceSvg piece={p} />
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="player-strip-right">
+              {materialAdvantage.leader === 'White' && (
+                <span className="material-pill">{materialAdvantage.score}</span>
+              )}
+              {currentPlayer === 'white' && (
+                <span className="turn-indicator-pill user-turn">Your Turn</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right / Bottom: Grandmaster Console Column */}
+        <div className="chess-console-column">
+          {/* Status Alert Banner */}
+          {gameStatus === 'check' && (
+            <div className="status-banner check" role="status">
+              ⚠️ Check! The King is under attack!
+            </div>
+          )}
+          {gameStatus === 'checkmate' && (
+            <div className="status-banner checkmate" role="status">
+              ♚ Checkmate! {winner?.toUpperCase()} Wins!
+            </div>
+          )}
+          {gameStatus === 'stalemate' && (
+            <div className="status-banner stalemate" role="status">
+              🤝 Stalemate (Draw)
+            </div>
+          )}
+
+          {/* Algebraic Move History Table */}
+          <div className="console-card move-history-card">
+            <div className="console-card-header">
+              <span className="card-title">📜 Move History</span>
+              <span className="badge-subtle">{moveHistory.length} moves</span>
+            </div>
+            <div className="move-history-table">
+              {formattedMoves.length === 0 ? (
+                <div className="empty-history">Game started. Make your first move!</div>
+              ) : (
+                formattedMoves.map((m) => (
+                  <div key={m.turnNum} className="move-row">
+                    <span className="move-cell-num">{m.turnNum}.</span>
+                    <span className="move-cell-move white-cell">{m.white}</span>
+                    <span className="move-cell-move black-cell">{m.black || '...'}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Theme Switcher Card */}
+          <div className="console-card theme-card">
+            <label className="card-title">🎨 Board Theme</label>
+            <div className="theme-toggle-group">
+              <button
+                type="button"
+                className={`theme-toggle-btn ${boardTheme === 'emerald' ? 'active' : ''}`}
+                onClick={() => handleThemeChange('emerald')}
+              >
+                <span className="swatch emerald-preview" />
+                <span>Emerald</span>
+              </button>
+              <button
+                type="button"
+                className={`theme-toggle-btn ${boardTheme === 'wood' ? 'active' : ''}`}
+                onClick={() => handleThemeChange('wood')}
+              >
+                <span className="swatch wood-preview" />
+                <span>Wood</span>
+              </button>
+              <button
+                type="button"
+                className={`theme-toggle-btn ${boardTheme === 'midnight' ? 'active' : ''}`}
+                onClick={() => handleThemeChange('midnight')}
+              >
+                <span className="swatch midnight-preview" />
+                <span>Midnight</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Controls: Undo & New Game */}
+          <div className="console-actions">
+            <button
+              type="button"
+              className="btn-action-undo"
+              onClick={handleUndo}
+              disabled={moveHistory.length === 0 || aiThinking}
+            >
+              ↶ Undo Move
+            </button>
+            <button
+              type="button"
+              className="btn-action-new"
+              onClick={handleNewGame}
+            >
+              New Game
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Checkmate Modal */}
+      {gameStatus === 'checkmate' && (
+        <div className="modal-overlay animate-fade-in" role="dialog" aria-modal="true">
+          <div className="modal">
+            <h2>🎉 Checkmate!</h2>
+            <p><strong>{winner?.toUpperCase()}</strong> is victorious!</p>
+            <div className="modal-buttons">
+              <button className="btn-primary" onClick={handleNewGame}>
+                Play Again
+              </button>
+              <button className="btn-secondary" onClick={() => setGameMode(null)}>
+                Mode Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stalemate Modal */}
+      {gameStatus === 'stalemate' && (
+        <div className="modal-overlay animate-fade-in" role="dialog" aria-modal="true">
+          <div className="modal">
+            <h2>🤝 Stalemate!</h2>
+            <p>Game is a draw.</p>
+            <div className="modal-buttons">
+              <button className="btn-primary" onClick={handleNewGame}>
+                Play Again
+              </button>
+              <button className="btn-secondary" onClick={() => setGameMode(null)}>
+                Mode Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pawn Promotion Modal */}
+      {promotionPending && (
+        <div className="modal-overlay animate-fade-in" role="dialog" aria-modal="true">
+          <div className="modal">
+            <h2>Pawn Promotion</h2>
+            <p>Choose a piece to promote to:</p>
+            <div className="promotion-choices">
+              {['Q', 'R', 'B', 'N'].map((piece) => (
+                <button
+                  key={piece}
+                  className="promotion-btn"
+                  onClick={() => handlePromotion(piece)}
+                  aria-label={`Promote pawn to ${piece === 'Q' ? 'Queen' : piece === 'R' ? 'Rook' : piece === 'B' ? 'Bishop' : 'Knight'}`}
+                >
+                  <span className="piece-preview-box">
+                    <ChessPieceSvg piece={currentPlayer === 'white' ? piece : piece.toLowerCase()} />
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

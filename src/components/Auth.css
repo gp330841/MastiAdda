@@ -6,7 +6,7 @@
   min-height: calc(100vh - 120px);
   padding: 1.5rem 1rem calc(4.5rem + env(safe-area-inset-bottom, 20px)) 1rem;
   box-sizing: border-box;
-  touch-action: pan-y pinch-zoom;
+  touch-action: manipulation;
 }
 
 .auth-glass-panel {

@@ -51,7 +51,8 @@ html {
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y pinch-zoom;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 body {
@@ -62,10 +63,11 @@ body {
   margin: 0;
   padding: 0;
   width: 100%;
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y pinch-zoom;
-  overscroll-behavior-y: none;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 #root {

@@ -53,8 +53,8 @@ const TwentyFortyEight = ({ onBack }) => {
   const [won, setWon] = useState(() => savedGame?.won || false);
   const [hasDismissedWin, setHasDismissedWin] = useState(() => savedGame?.hasDismissedWin || false);
   const [history, setHistory] = useState(() => savedGame?.history || []);
-  const [touchStart, setTouchStart] = useState(null);
   const syncTimerRef = useRef(null);
+  const boardRef = useRef(null);
 
   // Reconcile and persist in-progress game so navigating away retains board
   useEffect(() => {
@@ -288,41 +288,123 @@ const TwentyFortyEight = ({ onBack }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleMove, handleUndo, handleNewGame, gameOver, won]);
 
-  const handleTouchStart = (e) => {
-    setTouchStart({
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
-    });
-  };
+  useEffect(() => {
+    const boardEl = boardRef.current;
+    if (!boardEl) return;
 
-  const handleTouchEnd = (e) => {
-    if (!touchStart) return;
+    let startX = 0;
+    let startY = 0;
+    let isSwiping = false;
 
-    const touchEnd = {
-      x: e.changedTouches[0].clientX,
-      y: e.changedTouches[0].clientY,
+    const handleTouchStart = (e) => {
+      if (gameOver || won) return;
+      if (!e.touches || e.touches.length !== 1) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      isSwiping = true;
     };
 
-    const deltaX = touchEnd.x - touchStart.x;
-    const deltaY = touchEnd.y - touchStart.y;
-    const threshold = 30;
-
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      if (deltaX > threshold) {
-        handleMove('right');
-      } else if (deltaX < -threshold) {
-        handleMove('left');
+    const handleTouchMove = (e) => {
+      if (!isSwiping) return;
+      // Crucial: prevent window scrolling, pull-to-refresh, and viewport bounce while swiping on the game board
+      if (e.cancelable) {
+        e.preventDefault();
       }
-    } else {
-      if (deltaY > threshold) {
-        handleMove('down');
-      } else if (deltaY < -threshold) {
-        handleMove('up');
-      }
-    }
+    };
 
-    setTouchStart(null);
-  };
+    const handleTouchEnd = (e) => {
+      if (!isSwiping) return;
+      isSwiping = false;
+
+      if (!e.changedTouches || e.changedTouches.length === 0) return;
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+
+      const endX = e.changedTouches[0].clientX;
+      const endY = e.changedTouches[0].clientY;
+      const deltaX = endX - startX;
+      const deltaY = endY - startY;
+      const threshold = 25;
+
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (Math.abs(deltaX) > threshold) {
+          if (deltaX > 0) {
+            handleMove('right');
+          } else {
+            handleMove('left');
+          }
+        }
+      } else {
+        if (Math.abs(deltaY) > threshold) {
+          if (deltaY > 0) {
+            handleMove('down');
+          } else {
+            handleMove('up');
+          }
+        }
+      }
+    };
+
+    const handleTouchCancel = () => {
+      isSwiping = false;
+    };
+
+    // Mouse drag support for testing swipe gestures in desktop browser simulator
+    let mouseStartX = 0;
+    let mouseStartY = 0;
+    let isMouseDown = false;
+
+    const handleMouseDown = (e) => {
+      if (gameOver || won || e.button !== 0) return;
+      mouseStartX = e.clientX;
+      mouseStartY = e.clientY;
+      isMouseDown = true;
+    };
+
+    const handleMouseUp = (e) => {
+      if (!isMouseDown) return;
+      isMouseDown = false;
+
+      const deltaX = e.clientX - mouseStartX;
+      const deltaY = e.clientY - mouseStartY;
+      const threshold = 25;
+
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (Math.abs(deltaX) > threshold) {
+          if (deltaX > 0) handleMove('right');
+          else handleMove('left');
+        }
+      } else {
+        if (Math.abs(deltaY) > threshold) {
+          if (deltaY > 0) handleMove('down');
+          else handleMove('up');
+        }
+      }
+    };
+
+    const handleMouseLeave = () => {
+      isMouseDown = false;
+    };
+
+    boardEl.addEventListener('touchstart', handleTouchStart, { passive: true });
+    boardEl.addEventListener('touchmove', handleTouchMove, { passive: false });
+    boardEl.addEventListener('touchend', handleTouchEnd, { passive: false });
+    boardEl.addEventListener('touchcancel', handleTouchCancel, { passive: true });
+    boardEl.addEventListener('mousedown', handleMouseDown);
+    boardEl.addEventListener('mouseup', handleMouseUp);
+    boardEl.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      boardEl.removeEventListener('touchstart', handleTouchStart);
+      boardEl.removeEventListener('touchmove', handleTouchMove);
+      boardEl.removeEventListener('touchend', handleTouchEnd);
+      boardEl.removeEventListener('touchcancel', handleTouchCancel);
+      boardEl.removeEventListener('mousedown', handleMouseDown);
+      boardEl.removeEventListener('mouseup', handleMouseUp);
+      boardEl.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [handleMove, gameOver, won]);
 
   const handleContinue = () => {
     setWon(false);
@@ -381,10 +463,8 @@ const TwentyFortyEight = ({ onBack }) => {
       </div>
 
       <div
+        ref={boardRef}
         className="board-2048"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={() => setTouchStart(null)}
         role="region"
         aria-label={`2048 board. Score ${score}. Use the arrow keys, WASD, swipe, or the direction buttons to move tiles.`}
       >

@@ -70,7 +70,6 @@ const Ludo = ({ onBack }) => {
   const [diceRotation, setDiceRotation] = useState({ x: 0, y: 0 });
   const [soundEnabled, setSoundEnabled] = useState(() => isMasterSoundEnabled());
   const [winner, setWinner] = useState(null);
-  const [showRollHint, setShowRollHint] = useState(() => !savedGame?.hasRolled);
   const [playerNames, setPlayerNames] = useState(() => savedGame?.playerNames || DEFAULT_PLAYER_NAMES);
 
   // Persist in-progress game state to storage
@@ -116,7 +115,7 @@ const Ludo = ({ onBack }) => {
       case 3: return { x: 0, y: -90 };
       case 4: return { x: 0, y: 90 };
       case 5: return { x: 90, y: 0 };
-      case 6: return { x: 180, y: 0 };
+      case 6: return { x: 0, y: 180 };
       default: return { x: 0, y: 0 };
     }
   }, []);
@@ -141,12 +140,12 @@ const Ludo = ({ onBack }) => {
 
       newPlayersState[color] = newPlayersState[color].map((token) => {
         if (token.status !== 'active') return token;
+        const pos = getTokenPosition(color, token);
+        const key = `${pos[0]},${pos[1]}`;
 
-        const currentPos = getTokenPosition(color, token);
-        const currentKey = `${currentPos[0]},${currentPos[1]}`;
-
-        if (currentKey !== targetKey) return token;
-        if (isPositionSafe(currentPos)) return token;
+        if (key !== targetKey || isPositionSafe(targetPos[0], targetPos[1])) {
+          return token;
+        }
 
         captured = true;
         return { ...token, status: 'base', step: 0 };
@@ -158,13 +157,22 @@ const Ludo = ({ onBack }) => {
 
   const throwDice3D = useCallback((finalNumber) => {
     setIsRolling(true);
-    const baseSpinsX = Math.floor(Math.random() * 4 + 4) * 360;
-    const baseSpinsY = Math.floor(Math.random() * 4 + 4) * 360;
     const target = getRotationForNumber(finalNumber);
 
-    setDiceRotation({
-      x: baseSpinsX + target.x,
-      y: baseSpinsY + target.y,
+    setDiceRotation((prev) => {
+      const norm = (deg) => ((deg % 360) + 360) % 360;
+      const curX = norm(prev.x);
+      const curY = norm(prev.y);
+      const tgtX = norm(target.x);
+      const tgtY = norm(target.y);
+
+      const diffX = (tgtX - curX + 360) % 360;
+      const diffY = (tgtY - curY + 360) % 360;
+
+      return {
+        x: prev.x + 720 + diffX,
+        y: prev.y + 720 + diffY,
+      };
     });
 
     window.setTimeout(() => {
@@ -180,12 +188,11 @@ const Ludo = ({ onBack }) => {
       }
 
       setMessage(`${formatPlayerName(turn)} rolled a ${finalNumber}. Choose a token.`);
-    }, 1200);
+    }, 950);
   }, [formatPlayerName, getRotationForNumber, nextTurn, players, turn]);
 
   const handleRoll = useCallback(() => {
     if (hasRolled || isRolling || winner) return;
-    setShowRollHint(false);
     setMessage(`${formatPlayerName(turn)} is rolling...`);
     const roll = Math.floor(Math.random() * 6) + 1;
     if (roll === 6) {
@@ -333,7 +340,6 @@ const Ludo = ({ onBack }) => {
     setDiceRotation({ x: 0, y: 0 });
     setHasRolled(false);
     setIsRolling(false);
-    setShowRollHint(true);
     setMessage('Red to roll!');
   };
 
@@ -523,69 +529,117 @@ const Ludo = ({ onBack }) => {
 
       <div className="ludo-content">
         <div className="ludo-sidebar glass-panel">
-          <div className="active-player-panel">
+          {/* Unified Active Turn & 3D Dice Action Deck */}
+          <div className={`active-player-deck turn-${turn}`}>
             <div className={`active-player-glow glow-${turn}`} />
-            <div className="turn-badge">Current Turn</div>
-            <h3 className="turn-indicator" style={{ color: `var(--color-${turn})` }}>
-              {getPlayerDisplayName(turn, playerNames)}
-              <span className="turn-role">{isBot[turn] ? ' Bot' : ' You'}</span>
-            </h3>
-            <div className="ludo-message" aria-live="polite" aria-atomic="true">{message}</div>
+
+            <div className="active-turn-info">
+              <div className="turn-header-row">
+                <span className="turn-badge" style={{ background: PLAYER_COLOR_MAP[turn] }}>
+                  {isBot[turn] ? '🤖 Bot' : '👤 You'}
+                </span>
+                <h3 className="turn-indicator" style={{ color: `var(--color-${turn})` }}>
+                  {getPlayerDisplayName(turn, playerNames)}
+                </h3>
+              </div>
+              <div className="ludo-message" aria-live="polite" aria-atomic="true">
+                {message}
+              </div>
+            </div>
+
+            {/* 3D Amazing Dice Stage */}
+            <div className="dice-stage">
+              <div className={`dice-podium podium-${turn}`}>
+                <div className={`dice-shadow-ellipse ${isRolling ? 'shadow-rolling' : ''}`} />
+                <button
+                  type="button"
+                  className={`dice-scene ${isRolling ? 'dice-rolling' : ''} ${hasRolled && diceRoll === 6 ? 'rolled-six' : ''} ${!isBot[turn] && !hasRolled && !isRolling ? 'pulse-ready' : ''}`}
+                  onClick={handleRoll}
+                  disabled={isBot[turn] || hasRolled || isRolling}
+                  aria-label={isBot[turn] ? "Waiting for the bot to roll" : hasRolled ? `Rolled ${diceRoll}` : "Roll the dice"}
+                  title={!isBot[turn] && !hasRolled ? "Tap dice to roll!" : ""}
+                >
+                  <div
+                    className="cube"
+                    style={{ transform: `translateZ(calc(-1 * var(--dice-half, 38px))) rotateX(${diceRotation.x}deg) rotateY(${diceRotation.y}deg)` }}
+                  >
+                    <div className="cube__face cube__face--front">{renderDiceValue(1)}</div>
+                    <div className="cube__face cube__face--up">{renderDiceValue(2)}</div>
+                    <div className="cube__face cube__face--right">{renderDiceValue(3)}</div>
+                    <div className="cube__face cube__face--left">{renderDiceValue(4)}</div>
+                    <div className="cube__face cube__face--down">{renderDiceValue(5)}</div>
+                    <div className="cube__face cube__face--back">{renderDiceValue(6)}</div>
+                  </div>
+                </button>
+              </div>
+
+              {/* Action Button & Status Prompts */}
+              <div className="dice-action-area">
+                {!isBot[turn] && !hasRolled && (
+                  <button
+                    type="button"
+                    className="btn-roll-action"
+                    onClick={handleRoll}
+                    disabled={isRolling}
+                  >
+                    <span>🎲</span>
+                    <span>{isRolling ? 'Rolling...' : 'ROLL DICE'}</span>
+                  </button>
+                )}
+
+                {!isBot[turn] && hasRolled && (
+                  <div className={`roll-result-pill ${diceRoll === 6 ? 'result-six' : ''}`}>
+                    <span className="roll-result-badge">{diceRoll}</span>
+                    <span className="roll-result-hint">Pick a token</span>
+                  </div>
+                )}
+
+                {isBot[turn] && (
+                  <div className="bot-turn-badge">
+                    <span className="bot-pulse-dot" />
+                    <span>Bot rolling...</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
+          {/* Compact Player List Strip */}
           <div className="player-list" aria-label="Players">
-            {activePlayers.map((color) => (
-              <div
-                key={color}
-                className={`player-row ${turn === color ? 'active' : ''} ${isBot[color] ? 'bot' : 'human'}`}
-                style={{
-                  borderLeft: `3px solid ${PLAYER_COLOR_MAP[color]}`,
-                  boxShadow: turn === color ? `inset 0 0 0 1px ${PLAYER_COLOR_MAP[color]}44, 0 0 18px rgba(15, 23, 42, 0.2)` : 'none',
-                }}
-              >
-                <span
-                  className="player-swatch"
+            {activePlayers.map((color) => {
+              const homeCount = players[color].filter((p) => p.status === 'home').length;
+              return (
+                <div
+                  key={color}
+                  className={`player-row ${turn === color ? 'active' : ''} ${isBot[color] ? 'bot' : 'human'}`}
                   style={{
-                    background: PLAYER_COLOR_MAP[color],
-                    boxShadow: `0 0 0 2px ${PLAYER_COLOR_MAP[color]}55, 0 0 12px ${PLAYER_COLOR_MAP[color]}88`,
+                    borderLeft: `3px solid ${PLAYER_COLOR_MAP[color]}`,
+                    boxShadow: turn === color ? `inset 0 0 0 1px ${PLAYER_COLOR_MAP[color]}44, 0 0 18px rgba(15, 23, 42, 0.2)` : 'none',
                   }}
-                />
-                <input
-                  className="player-name-input"
-                  type="text"
-                  value={playerNames[color] || ''}
-                  onChange={(event) => handlePlayerNameChange(color, event.target.value)}
-                  aria-label={`${getPlayerDisplayName(color, playerNames)} name`}
-                />
-                <span className="player-type">{getPlayerLabel(color)}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="dice-container">
-            <button
-              type="button"
-              className="dice-scene"
-              onClick={handleRoll}
-              disabled={isBot[turn] || hasRolled || isRolling}
-              aria-label={isBot[turn] ? "Waiting for the bot to roll" : hasRolled ? `Rolled ${diceRoll}` : "Roll the dice"}
-            >
-              <div
-                className={`cube ${isRolling ? 'cube-rolling-blur' : ''}`}
-                style={{ transform: `translateZ(-50px) rotateX(${diceRotation.x}deg) rotateY(${diceRotation.y}deg)` }}
-              >
-                <div className="cube__face cube__face--front">{renderDiceValue(1)}</div>
-                <div className="cube__face cube__face--up">{renderDiceValue(2)}</div>
-                <div className="cube__face cube__face--right">{renderDiceValue(3)}</div>
-                <div className="cube__face cube__face--left">{renderDiceValue(4)}</div>
-                <div className="cube__face cube__face--down">{renderDiceValue(5)}</div>
-                <div className="cube__face cube__face--back">{renderDiceValue(6)}</div>
-              </div>
-            </button>
-
-            {!isBot[turn] && !hasRolled && showRollHint && (
-              <div className="roll-hint">Click Dice to Roll</div>
-            )}
+                >
+                  <span
+                    className="player-swatch"
+                    style={{
+                      background: PLAYER_COLOR_MAP[color],
+                      boxShadow: `0 0 0 2px ${PLAYER_COLOR_MAP[color]}55, 0 0 12px ${PLAYER_COLOR_MAP[color]}88`,
+                    }}
+                  />
+                  <input
+                    className="player-name-input"
+                    type="text"
+                    value={playerNames[color] || ''}
+                    onChange={(event) => handlePlayerNameChange(color, event.target.value)}
+                    aria-label={`${getPlayerDisplayName(color, playerNames)} name`}
+                  />
+                  <div className="player-meta-badges">
+                    <span className="player-type">{getPlayerLabel(color)}</span>
+                    <span className="player-home-score" title="Tokens home">
+                      🏠 {homeCount}/4
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
